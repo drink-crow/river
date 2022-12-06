@@ -11,6 +11,12 @@ enum class seg_type
     CUBICTO
 };
 
+enum class set_type
+{
+    A,
+    B
+};
+
 namespace path {
     struct point {
         double x;
