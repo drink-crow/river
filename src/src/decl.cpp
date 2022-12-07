@@ -14,32 +14,43 @@ namespace dcel {
 
     void dcel::add_line(num x1, num y1, num x2, num y2)
     {
+        point* start_p = find_or_add_point(x1, y1);
+        point* end_p = find_or_add_point(x2, y2);
+
+        // 添加所有线时只构建半边
+        auto l1 = new_line_edge(start_p, end_p);
+    }
+
+    line_half_edge* dcel::new_line_edge(point* start, point* end)
+    {
+        auto line = new line_half_edge;
+
+        line->start = start;
+        line->end = end;
+        line->type = current_set_type;
+
+        edges.insert(line);
+        start->edges.push_back(line);
+
+        return line;
+    }
+
+    point* dcel::find_or_add_point(num x, num y)
+    {
         point tmp_p;
+        point* res;
 
-        point* start_p = nullptr;
-        point* end_p = nullptr;
-
-        tmp_p.x = x1; tmp_p.y = y1;
+        tmp_p.x = x; tmp_p.y = y;
         auto it = point_set.find(&tmp_p);
         if (it == point_set.end()) {
-            start_p = new point;
-            point_set.insert(start_p);
+            res = new point;
+            point_set.insert(res);
         }
         else {
-            start_p = *it;
+            res = *it;
         }
 
-        tmp_p.x = x2; tmp_p.y = y2;
-        auto it = point_set.find(&tmp_p);
-        if (it == point_set.end()) {
-            end_p = new point;
-            point_set.insert(end_p);
-        }
-        else {
-            end_p = *it;
-        }
-
-
+        return res;
     }
 
 }

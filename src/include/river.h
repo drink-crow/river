@@ -67,16 +67,20 @@ namespace path {
 }
 
 namespace traits {
-    struct unknow_tag{};
-    struct point_tag{};
-    struct line_tag{};
-    struct arc_tag{};
-    struct cubic_tag{};
+    struct unknow_tag {};
+    struct point_tag {};
+    struct line_tag {};
+    struct arc_tag {};
+    struct cubic_tag {};
+    struct box_tag {};
+    struct point_type {};
 
+    struct min_corner {};
+    
+    
     template<typename T> struct tag{};
     template<typename T> struct coordinate_type{};
-    template<typename T> struct access_x {};
-    template<typename T> struct access_y {};
+    template<typename T, int i> struct access {};
 
     template<>
     struct tag<path::point>
@@ -91,7 +95,7 @@ namespace traits {
     };
 
     template<>
-    struct access_x<path::point>
+    struct access<path::point, 0>
     {
         static inline double get(const path::point& p)
         {
@@ -104,7 +108,7 @@ namespace traits {
     };
 
     template<>
-    struct access_y<path::point>
+    struct access<path::point, 1>
     {
         static inline double get(const path::point& p)
         {
