@@ -1,3 +1,8 @@
+if (WIN32)
+    add_compile_options(/utf-8)
+endif()
+
+set(CMAKE_CXX_STANDARD 17)
 
 aux_source_directory(src SRC)
 

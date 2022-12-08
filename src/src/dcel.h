@@ -1,6 +1,7 @@
 #pragma once
 
 #include "river.h"
+#include "rmath.h"
 
 #include <set>
 #include <vector>
@@ -44,16 +45,23 @@ namespace dcel {
         set_type type = set_type::A;
 
         virtual seg_type get_seg_type() const = 0;
+        virtual ::rmath::rect get_boundary() const = 0;
     };
 
     struct line_half_edge : public half_edge
     {
-        virtual seg_type get_seg_type() const { return seg_type::LINETO; }
+        virtual seg_type get_seg_type() const override { return seg_type::LINETO; }
+        virtual ::rmath::rect get_boundary() const override {
+            return ::rmath::rect();
+        }
     };
 
     struct arc_half_edge : public half_edge
     {
-        virtual seg_type get_seg_type() const { return seg_type::ARCTO; }
+        virtual seg_type get_seg_type() const override { return seg_type::ARCTO; }
+        virtual ::rmath::rect get_boundary() const override {
+            return ::rmath::rect();
+        }
     };
 
     class dcel

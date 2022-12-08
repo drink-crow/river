@@ -17,7 +17,7 @@ namespace dcel {
         point* start_p = find_or_add_point(x1, y1);
         point* end_p = find_or_add_point(x2, y2);
 
-        // Ìí¼ÓËùÓĞÏßÊ±Ö»¹¹½¨°ë±ß
+        // åªæ·»åŠ åŠè¾¹ï¼Œå‰©ä¸‹åŠè¾¹ç­‰å¾…æ±‚äº¤ç‚¹åå†è¡¥å……
         auto l1 = new_line_edge(start_p, end_p);
     }
 

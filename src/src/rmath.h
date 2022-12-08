@@ -1,6 +1,6 @@
 #pragma once
 
-namespace math
+namespace rmath
 {
     struct vec2
     {
