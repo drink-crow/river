@@ -3,7 +3,7 @@
 #include <type_traits>
 namespace river {
 
-enum class seg_type
+enum class seg_type : int
 {
     MOVETO,
     LINETO,

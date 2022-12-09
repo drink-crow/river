@@ -128,10 +128,32 @@ namespace scan_line
         {
             return in->get_boundary();
         }
-
+        
+        // 端点重合不用处理
         static void intersect(const key& r, const key& l)
         {
+            constexpr int sort_value[] = { 0,1,10,100 };
+            int sort = sort_value[(int)r->get_seg_type()] + sort_value[(int)l->get_seg_type()];
 
+            // 这种分类发挺危险的，一旦 seg_type 有所改变，这里很容易失效
+            switch (sort)
+            {
+            case 2:
+                dcel::intersect((dcel::line_half_edge*)r, (dcel::line_half_edge*)l);
+                break;
+            case 11:
+                break;
+            case 20:
+                break;
+            case 101:
+                break;
+            case 110:
+                break;
+            case 200:
+                break;
+            default:
+                break;
+            }
         }
     };
 

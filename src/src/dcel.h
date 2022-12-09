@@ -6,29 +6,47 @@
 #include <set>
 #include <vector>
 
+#include "boost/geometry.hpp"
+
+#include "glm/glm.hpp"
+
 namespace dcel {
     using namespace river;
     typedef double num;
+    using namespace rmath;
 
     struct half_edge;
     struct face;
 
     struct point
     {
-        num x;
-        num y;
+        rmath::vec2 point;
 
         std::vector<half_edge*> edges;
     };
 
+    bool vec2_compare_func(const ::rmath::vec2& r, const ::rmath::vec2& l);
+
     struct point_less_operator
     {
+        using is_transparent = void;
+
         typedef point* key;
         bool operator()(const key& r, const key& l) const {
-            if (r->x < l->x) return true;
-            if (r->x == l->x) return r->y < l->y;
+            return vec2_compare_func(r->point, l->point);
+        }
+        bool operator()(const key& l, const vec2& r) const {
+            return vec2_compare_func(l->point, r);
+        };
+        bool operator()(const vec2& l, const key& r) const {
+            return vec2_compare_func(l, r->point);
+        };
+    };
 
-            return false;
+    struct vec2_compare
+    {
+        bool operator()(const ::rmath::vec2& r, const ::rmath::vec2& l) const {
+            return vec2_compare_func(r, l);
         }
     };
 
@@ -46,6 +64,12 @@ namespace dcel {
 
         virtual seg_type get_seg_type() const = 0;
         virtual ::rmath::rect get_boundary() const = 0;
+
+        void add_break_point(const ::rmath::vec2& bp) {
+            break_points.insert(bp);
+        }
+    private:
+        std::set<::rmath::vec2, vec2_compare> break_points;
     };
 
     struct line_half_edge : public half_edge
@@ -63,6 +87,10 @@ namespace dcel {
             return ::rmath::rect();
         }
     };
+
+    bool point_between_two_point(const vec2& p, const vec2& p0, const vec2& p1);
+
+    void intersect(line_half_edge* l, line_half_edge* r);
 
     class dcel
     {
