@@ -17,6 +17,7 @@ namespace dcel {
 
     struct half_edge;
     struct face;
+    class dcel;
 
     struct point
     {
@@ -68,6 +69,13 @@ namespace dcel {
         void add_break_point(const ::rmath::vec2& bp) {
             break_points.insert(bp);
         }
+        auto& get_break_points() const {
+            return break_points;
+        }
+
+        // 通过记录的断点，插入新的 edge 到 decl 中，本体的移除稍后又 decl 进行
+        virtual std::vector<half_edge*> process_break_point(dcel* parent) { return {}; }
+
     private:
         std::set<::rmath::vec2, vec2_compare> break_points;
     };
@@ -78,6 +86,7 @@ namespace dcel {
         virtual ::rmath::rect get_boundary() const override {
             return ::rmath::rect();
         }
+        virtual std::vector<half_edge*> process_break_point(dcel* parent) override;
     };
 
     struct arc_half_edge : public half_edge
@@ -98,10 +107,11 @@ namespace dcel {
         void set_current_set_type(set_type);
         set_type get_current_set_type() const;
 
-    private:
         void add_line(num x1, num y1, num x2, num y2);
         void add_arc();
         void add_cubic();
+
+        void process_break();
 
         line_half_edge* new_line_edge(point* start, point* end);
 

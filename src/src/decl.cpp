@@ -1,4 +1,5 @@
 #include "dcel.h"
+#include <algorithm>
 
 namespace dcel {
     bool vec2_compare_func(const ::rmath::vec2& r, const ::rmath::vec2& l)
@@ -79,6 +80,49 @@ namespace dcel {
         }
     }
 
+    std::vector<half_edge*> line_half_edge::process_break_point(dcel* parent)
+    {
+        std::vector<vec2> bp{ get_break_points().begin(),get_break_points().end()};
+        if (bp.empty()) return {};
+
+        struct compare
+        {
+            compare(const vec2& start, const vec2& end)
+                : dx(end.x >= start.x), dy(end.y >= start.y) {}
+
+            bool operator()(const vec2& r, const vec2& l) const {
+                if (dx && r.x < l.x) return true;
+                if ((!dx) && r.x > l.x) return true;
+                if (dy && r.y < l.y) return true;
+                if ((!dy) && r.y > l.y) return true;
+
+                return false;
+            }
+
+            const bool dx;
+            const bool dy;
+        };
+
+        std::sort(bp.begin(), bp.end(), compare(start->point,end->point));
+
+        std::vector<half_edge*> res;
+
+        auto cur_start = start;
+        for (auto p : bp)
+        {
+            auto cur_end = parent->find_or_add_point(p.x, p.y);
+            auto line = parent->new_line_edge(cur_start, cur_end);
+            res.push_back(line);
+
+            cur_start = cur_end;
+        }
+        if(bp.size() > 0) {
+            res.push_back(parent->new_line_edge(cur_start, end));
+        }
+
+        return res;
+    }
+
     void dcel::set_current_set_type(set_type new_type)
     {
         current_set_type = new_type;
@@ -99,6 +143,28 @@ namespace dcel {
 
         // 只添加半边，剩下半边等待求交点后再补充
         auto l1 = new_line_edge(start_p, end_p);
+    }
+
+    void dcel::process_break()
+    {
+        auto iter = edges.begin();
+        while (iter != edges.end())
+        {
+            auto edge = *iter;
+            auto replace = edge->process_break_point(this);
+            if (replace.empty()) {
+                continue;
+            }
+
+            // 移除旧的 edge
+            auto next = edges.erase(iter);
+            auto& start_edges = edge->start->edges;
+            start_edges.erase(std::remove(start_edges.begin(), start_edges.end(), edge), start_edges.end());
+            delete *iter;
+
+
+            iter = next;
+        }
     }
 
     line_half_edge* dcel::new_line_edge(point* start, point* end)
