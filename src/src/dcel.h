@@ -21,7 +21,9 @@ namespace dcel {
 
     struct point
     {
-        rmath::vec2 point;
+        point(num x, num y) : p(x,y){};
+
+        rmath::vec2 p;
 
         std::vector<half_edge*> edges;
     };
@@ -34,13 +36,13 @@ namespace dcel {
 
         typedef point* key;
         bool operator()(const key& r, const key& l) const {
-            return vec2_compare_func(r->point, l->point);
+            return vec2_compare_func(r->p, l->p);
         }
         bool operator()(const key& l, const vec2& r) const {
-            return vec2_compare_func(l->point, r);
+            return vec2_compare_func(l->p, r);
         };
         bool operator()(const vec2& l, const key& r) const {
-            return vec2_compare_func(l, r->point);
+            return vec2_compare_func(l, r->p);
         };
     };
 
@@ -62,6 +64,8 @@ namespace dcel {
         half_edge* prev = nullptr; // 同一个面下的前一个半边
 
         set_type type = set_type::A;
+
+        virtual ~half_edge() = default;
 
         virtual seg_type get_seg_type() const = 0;
         virtual ::rmath::rect get_boundary() const = 0;

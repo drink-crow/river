@@ -1,5 +1,15 @@
 #include "dcel.h"
 #include <algorithm>
+#include <qbrush.h>
+#include <qnamespace.h>
+#include <qpainterpath.h>
+#include <qpen.h>
+
+#include "debug_util.h"
+
+#include "QGraphicsPathItem"
+#include "QGraphicsRectItem"
+#include "river.h"
 
 namespace dcel {
     bool vec2_compare_func(const ::rmath::vec2& r, const ::rmath::vec2& l)
@@ -17,12 +27,10 @@ namespace dcel {
 
     void intersect(line_half_edge* l, line_half_edge* r)
     {
-        namespace bg = boost::geometry;
-
-        const vec2& p0 = l->start->point;
-        const vec2& p1 = l->end->point;
-        const vec2& p2 = r->start->point;
-        const vec2& p3 = r->end->point;
+        const vec2& p0 = l->start->p;
+        const vec2& p1 = l->end->p;
+        const vec2& p2 = r->start->p;
+        const vec2& p3 = r->end->p;
 
         const vec2 a = p1 - p0;
         const vec2 b = p2 - p3;
@@ -103,7 +111,7 @@ namespace dcel {
             const bool dy;
         };
 
-        std::sort(bp.begin(), bp.end(), compare(start->point,end->point));
+        std::sort(bp.begin(), bp.end(), compare(start->p,end->p));
 
         std::vector<half_edge*> res;
 
@@ -142,7 +150,7 @@ namespace dcel {
         point* end_p = find_or_add_point(x2, y2);
 
         // 只添加半边，剩下半边等待求交点后再补充
-        auto l1 = new_line_edge(start_p, end_p);
+        new_line_edge(start_p, end_p);
     }
 
     void dcel::process_break()
@@ -153,6 +161,7 @@ namespace dcel {
             auto edge = *iter;
             auto replace = edge->process_break_point(this);
             if (replace.empty()) {
+                ++iter;
                 continue;
             }
 
@@ -164,6 +173,32 @@ namespace dcel {
 
 
             iter = next;
+        }
+
+        auto scene = debug_util::get_debug_scene();
+        
+        auto add_line = [scene](line_half_edge* line){
+            double x1 = line->start->p.x;
+            double y1 = line->start->p.y;
+            double x2 = line->end->p.x;
+            double y2 = line->end->p.y;
+            scene->addLine(x1, y1, x2, y2);
+
+            QPen pen;
+            QBrush brush;
+            brush.setStyle(Qt::BrushStyle::SolidPattern);
+            brush.setColor(Qt::red);
+
+            num offset = 2.5;
+            scene->addRect(QRectF(x1-offset,y1-offset,offset*2,offset*2),pen,brush);
+            scene->addRect(QRectF(x2-offset,y2-offset,offset*2,offset*2),pen,brush);
+        };
+
+        for(auto e:edges){
+            if(e->get_seg_type() == seg_type::LINETO)
+            {
+                add_line((line_half_edge*)e);
+            }
         }
     }
 
@@ -187,7 +222,7 @@ namespace dcel {
 
         auto it = point_set.find(vec2(x,y));
         if (it == point_set.end()) {
-            res = new point;
+            res = new point(x,y);
             point_set.insert(res);
         }
         else {
