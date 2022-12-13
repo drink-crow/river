@@ -121,4 +121,21 @@ namespace traits {
     };
 }
 
+class processor_private;
+class processor
+{
+public:
+    typedef double num;
+
+    processor();
+    ~processor();
+
+    void add_line(num x1, num y1, num x2, num y2);
+    
+    void process();
+
+private:
+    processor_private* pptr;
+};
+
 }

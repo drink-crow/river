@@ -2,11 +2,10 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(skia REQUIRED )
 find_package(Qt6 COMPONENTS Gui Widgets REQUIRED)
 
 add_executable(river_test main.cpp)
-target_link_libraries(river_test PRIVATE river skia::skia Qt6::Gui Qt6::Widgets)
+target_link_libraries(river_test PRIVATE river Qt6::Gui Qt6::Widgets)
 
 if(WIN32)
     get_target_property(moc_path Qt6::moc IMPORTED_LOCATION)
