@@ -2,7 +2,7 @@
 
 namespace scan_line
 {
-    inline void scan_line::scan_line::add_segment(const key& in)
+   void scan_line::add_segment(const key& in)
     {
         auto new_seg = new seg{in, funcs::get_rect(in) };
         

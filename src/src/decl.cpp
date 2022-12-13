@@ -10,6 +10,7 @@
 #include "QGraphicsPathItem"
 #include "QGraphicsRectItem"
 #include "river.h"
+#include "scan_line.h"
 
 namespace dcel {
     bool vec2_compare_func(const ::rmath::vec2& r, const ::rmath::vec2& l)
@@ -155,6 +156,12 @@ namespace dcel {
 
     void dcel::process_break()
     {
+        scan_line::scan_line scan_line;
+        for(auto e:edges){
+            scan_line.add_segment(e);
+        }
+        scan_line.process();
+
         auto iter = edges.begin();
         while (iter != edges.end())
         {
