@@ -27,7 +27,7 @@ void processor::add_line(num x1, num y1, num x2, num y2)
 
 void processor::process()
 {
-    pptr->dcel.process_break();
+    pptr->dcel.process();
 }
 
 }

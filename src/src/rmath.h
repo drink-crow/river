@@ -5,6 +5,9 @@
 #include <initializer_list>
 namespace rmath
 {
+
+    constexpr double pi = 3.141592653589793;
+
     struct vec2
     {
         typedef double num;
@@ -26,6 +29,7 @@ namespace rmath
 
         // 点乘
         num dot(const vec2& p) const { return x * p.x + y * p.y; }
+        num cross(const vec2& p) const { return x*p.y - p.x*y; }
         // 求模的平方
         num dist2() const { return x * x + y * y; }
     };
