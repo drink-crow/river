@@ -1,11 +1,14 @@
+#include "boost/token_functions.hpp"
 #include "dcel.h"
 #include <algorithm>
 #include <cstddef>
 #include <qbrush.h>
+#include <qline.h>
 #include <qnamespace.h>
 #include <qpainterpath.h>
 #include <qpen.h>
 #include <qpoint.h>
+#include <qsize.h>
 #include <vector>
 #include <cmath>
 
@@ -145,7 +148,13 @@ namespace dcel {
 
             if(le.edge->get_seg_type() == seg_type::LINETO && re.edge->get_seg_type() == seg_type::LINETO)
             {
-                return l.data.angle < r.data.angle;
+                if(l.data.angle < r.data.angle) return true;
+                if(l.data.angle > r.data.angle) return false;
+
+                if(l.edge.is_emit && !(r.edge.is_emit)) return true;
+                if(!(l.edge.is_emit) && r.edge.is_emit) return false;
+
+                return l.edge.edge > r.edge.edge;
             }
 
             throw "out of sort condition";
@@ -174,7 +183,7 @@ namespace dcel {
         };
 
         next(it, edges);
-        while(it->is_emit == false){
+        while(it->is_emit == false || it->edge->prev){
             next(it, edges);
         }
 
@@ -382,9 +391,9 @@ namespace dcel {
                 cur_e->next = next;
                 next->prev = cur_e;
 
-                if(cur_e->end == loop_start){
-                    cur_e->next = e;
-                    e->prev = cur_e;
+                if(next->end == loop_start){
+                    next->next = e;
+                    e->prev = next;
                     break;
                 }
                 cur_e = cur_e->next;
@@ -395,24 +404,58 @@ namespace dcel {
         {
             auto scene = debug_util::get_debug_scene();
 
-            QRect outer_rect(-20,-20,140,140);
-            QPoint offset(0, 140);
-            QPoint cur_move(0,0);
+            qreal space = 140;
+            QRectF outer_rect(-20,-20,space,space);
+
+            struct offset_rect 
+            {
+                void next(){
+                    if(cow == 4){
+                        move.rx() += space;
+                        move.ry() = 0;
+                        cow = 0;
+                    }else{
+                        ++cow;
+                        move.ry() += space;
+                    }
+                }
+                auto operator()() const {return move;}
+
+                QPointF move = QPointF(0,0);
+                qreal space = 140;
+                int cow = 0;
+            };
+
+            offset_rect offset;
             QPen red_pen(Qt::red);
+            QBrush brush;
+            brush.setStyle(Qt::BrushStyle::SolidPattern);
+            brush.setColor(Qt::red);
+            for(auto e:edges){
+                scene->addRect(outer_rect.translated(offset()), red_pen);
+                scene->addLine(QLineF(qstart(e),qend(e)));
+            }
+            offset.next();
+            
             for(auto f:faces)
             {
-                scene->addRect(outer_rect, red_pen);
+                scene->addRect(outer_rect.translated(offset()), red_pen);
 
                 auto cur = f->start;
                 do{
                     QLineF line(qstart(cur), qend(cur));
-                    line.translate(cur_move);
+                    line.translate(offset());
                     scene->addLine(line);
+                    scene->addRect(QRectF(qstart(cur),QSizeF(2,2)).translated(offset()),red_pen,brush);
+
+                    auto nor = line.normalVector().unitVector();
+                    nor.setLength(5);
+
+                    scene->addLine(QLineF(line.center(), nor.p2()-nor.p1()+line.center()));
                     cur = cur->next;
                 }while(cur != f->start);
 
-                cur_move += offset;
-                outer_rect.translate(offset);
+                offset.next();
             }
         }
 #endif
