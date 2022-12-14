@@ -8,9 +8,9 @@ namespace scan_line
         
         segments.push_back(new_seg);
 
-        auto startp = get_point(bg::get<bg::min_corner, 1>(new_seg->box));
+        auto startp = get_point(bg::get<bg::min_corner, 0>(new_seg->box));
         startp->in.push_back(new_seg);
-        auto endp = get_point(bg::get<bg::max_corner, 1>(new_seg->box));
+        auto endp = get_point(bg::get<bg::max_corner, 0>(new_seg->box));
         endp->out.push_back(new_seg);
     }
 
@@ -43,14 +43,14 @@ namespace scan_line
         return bg::intersects(r,l);
     }
 
-    scan_line::scan_point* scan_line::scan_line::get_point(const ct& y)
+    scan_line::scan_point* scan_line::scan_line::get_point(const ct& x)
     {
         scan_point* res = nullptr;
 
-        auto search = scan_points.find(y);
+        auto search = scan_points.find(x);
         if (search == scan_points.end()) {
             res = new scan_point;
-            res->y = y;
+            res->x = x;
             scan_points.insert(res);
         }
         else {

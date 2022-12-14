@@ -4,6 +4,7 @@
 #include <qnamespace.h>
 #include <qpainterpath.h>
 #include <qpen.h>
+#include <vector>
 
 #include "debug_util.h"
 
@@ -62,21 +63,24 @@ namespace dcel {
                     l->add_break_point(p3);
                 }
             }
+
+            return;
         }
 
         const double reciprocal = 1 / denominator;
         const double na = (b.y * c.x - b.x * c.y) * reciprocal;
 
-        bool in_l = 0 < na || na < 1;
+        bool in_l = false;
         vec2 intersection;
-        if (na < 0 || na > 1) {
+        if (0 < na && na < 1) {
             // 交点位于 l 内
+            in_l = true;
             intersection = (p0 + a * na);
             l->add_break_point(intersection);
         }
 
         const double nb = (a.x * c.y - a.y * c.x) * reciprocal;
-        if (0 < nb || nb < 1) {
+        if (0 < nb && nb < 1) {
             // 交点也位于 r 内
 
             // 确保计算出来打断的点在数值上完全一致
@@ -84,7 +88,7 @@ namespace dcel {
                 r->add_break_point(intersection);
             }
             else {
-                r->add_break_point(p2 + b * nb);
+                r->add_break_point(p2 + (p3-p2) * nb);
             }
         }
     }
@@ -162,24 +166,22 @@ namespace dcel {
         }
         scan_line.process();
 
-        auto iter = edges.begin();
-        while (iter != edges.end())
+        // 这里很重要，应为对 edges 插入删除会扰乱 set 的遍历
+        std::vector<half_edge*> tmp_vector(edges.begin(), edges.end());
+
+        for (auto edge:tmp_vector)
         {
-            auto edge = *iter;
+            // 这里可能会对 set 进行插入
             auto replace = edge->process_break_point(this);
             if (replace.empty()) {
-                ++iter;
                 continue;
             }
 
-            // 移除旧的 edge
-            auto next = edges.erase(iter);
+            // 在 set 中移除旧的 edge
+            edges.erase(edge);
             auto& start_edges = edge->start->edges;
             start_edges.erase(std::remove(start_edges.begin(), start_edges.end(), edge), start_edges.end());
-            delete *iter;
-
-
-            iter = next;
+            delete edge;
         }
 
         auto scene = debug_util::get_debug_scene();

@@ -170,7 +170,7 @@ namespace scan_line
 
         struct scan_point
         {
-            ct y{ 0 };
+            ct x{ 0 };
 
             std::vector<seg*> in;
             std::vector<seg*> out;
@@ -182,14 +182,14 @@ namespace scan_line
             using value = scan_point*;
 
             bool operator()(const value& l, const value& r) const {
-                return l->y < r->y;
+                return l->x < r->x;
             };
 
             bool operator()(const value& l, const ct& r) const {
-                return l->y < r;
+                return l->x < r;
             };
             bool operator()(const ct& l, const value& r) const {
-                return l < r->y;
+                return l < r->x;
             };
         };
 
@@ -200,7 +200,7 @@ namespace scan_line
     private:
         bool intersect(const box& r, const box& l) const;
         // 查找或新增
-        scan_point* get_point(const ct& y);
+        scan_point* get_point(const ct& x);
         std::set<scan_point*, scan_point_compare> scan_points;
         std::vector<seg*> segments;
     };

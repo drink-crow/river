@@ -88,7 +88,7 @@ namespace dcel {
     {
         virtual seg_type get_seg_type() const override { return seg_type::LINETO; }
         virtual ::rmath::rect get_boundary() const override {
-            return ::rmath::rect();
+            return rect::from({start->p, end->p});
         }
         virtual std::vector<half_edge*> process_break_point(dcel* parent) override;
     };
@@ -97,7 +97,7 @@ namespace dcel {
     {
         virtual seg_type get_seg_type() const override { return seg_type::ARCTO; }
         virtual ::rmath::rect get_boundary() const override {
-            return ::rmath::rect();
+            return rect::from({start->p, end->p});
         }
     };
 
