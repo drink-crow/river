@@ -9,8 +9,10 @@
 #include <qlabel.h>
 #include <qimage.h>
 #include <qgraphicsview.h>
+#include <QThread>
 
 #include "debug_util.h"
+#include "web_server.h"
 
 class QtView : public QGraphicsView
 {
@@ -59,6 +61,9 @@ int main(int argc, char** argv)
     view->setAcceptDrops(true);
     mainwindow.setCentralWidget(view);
     mainwindow.show();
+
+    web_server_controller web_app;
+    web_app.start();
 
     return app.exec();
 }
