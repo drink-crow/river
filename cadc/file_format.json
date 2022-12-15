@@ -1,0 +1,40 @@
+{
+	"version":"0.0.0.1",
+	"group":[
+		{
+			"name":"group1",
+			"items":[2,3]
+		},
+		{
+			"name":"group2",
+			"items":[4,5]
+		}
+	],
+	"item":[
+		{
+			"name":"path1",
+			"type":"path",
+			"path":"m 0 0 l 100 100 l"
+		},
+		{
+			"name":"path1",
+			"type":"path",
+			"path":"m 0 0 l 100 100 l"
+		},
+		{
+			"name":"path1",
+			"type":"path",
+			"path":"m 0 0 l 100 100 l"
+		},
+		{
+			"name":"path1",
+			"type":"path",
+			"path":"m 0 0 l 100 100 l"
+		},
+		{
+			"name":"path1",
+			"type":"path",
+			"path":"m 0 0 l 100 100 l"
+		}
+	]
+}
