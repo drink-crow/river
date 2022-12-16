@@ -25,8 +25,6 @@ int main(int argc, char** argv)
 
     river.process();
 
-    debug_util::show_line(QLineF(QPointF(100,0),QPointF(0,100)));
-
     debug_util::disconnect();
     return 0;
 }

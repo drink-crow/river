@@ -6,6 +6,8 @@ QtView::QtView(QGraphicsScene* scene, QWidget* parent) : QGraphicsView(scene, pa
 {
         setBaseSize(800, 600);
         setDragMode(QGraphicsView::DragMode::ScrollHandDrag);
+        
+        scale(1, -1);
 
         connect(this, &QtView::new_file, this, &QtView::paser_file);
 }

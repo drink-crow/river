@@ -7,7 +7,7 @@ set(CMAKE_AUTOUIC ON)
 find_package(Qt6 COMPONENTS Gui Widgets REQUIRED)
 find_package(Drogon REQUIRED)
 
-add_executable(river_test main.cpp http_server.cpp web_server.cpp qtview.cpp central_widget.cpp)
+add_executable(river_test main.cpp http_server.cpp web_server.cpp qtview.cpp central_widget.cpp "main_window.cpp")
 target_link_libraries(river_test PRIVATE river Qt6::Gui Qt6::Widgets Drogon::Drogon)
 target_include_directories(river_test PRIVATE ./)
 

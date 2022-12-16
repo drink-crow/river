@@ -19,20 +19,29 @@
 #include "river.h"
 #include "rmath.h"
 #include "scan_line.h"
+#include "util.h"
 
 namespace dcel {
 
 #if RIVER_GRAPHICS_DEBUG
-    QPointF toqt(const vec2& p){
-        return QPointF(p.x, p.y);
-    }
 
-    QPointF qstart(const half_edge* e){
+    QPointF qstart(const half_edge* e) {
         return toqt(e->start->p);
     }
-    QPointF qend(const half_edge* e){
+    QPointF qend(const half_edge* e) {
         return toqt(e->end->p);
     }
+
+    QLineF qline(const half_edge* e, bool inverse = false)
+    {
+        if (!inverse) {
+            return QLineF(qstart(e), qend(e));
+        }
+        else {
+            return QLineF(qend(e), qstart(e));
+        }
+    }
+
 #endif
 
     bool vec2_compare_func(const ::rmath::vec2& r, const ::rmath::vec2& l)
@@ -165,6 +174,10 @@ namespace dcel {
         edges.clear();
         for(auto &e:sort_vector){
             edges.push_back(e.edge);
+        }
+
+        for (auto& e : sort_vector) {
+            debug_util::show_line(qline(e.edge.edge));
         }
     }
 

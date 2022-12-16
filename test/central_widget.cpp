@@ -3,7 +3,9 @@
 #include "QVBoxLayout"
 #include "QHBoxLayout"
 #include "QPushButton"
+#include "qcheckbox.h"
 
+#include "main_window.h"
 #include "qtview.h"
 
 central_widget::central_widget(QWidget* parent) : QWidget(parent)
@@ -16,9 +18,15 @@ central_widget::central_widget(QWidget* parent) : QWidget(parent)
     vlayout->addLayout(hlayout);
 
     auto btn_clear = new QPushButton("clear");
-    vlayout->addWidget(btn_clear);
-
+    hlayout->addWidget(btn_clear);
     connect(btn_clear, &QPushButton::clicked,this, &central_widget::clear);
+
+    auto pin = new QCheckBox("pin");
+    hlayout->addWidget(pin);
+    connect(pin, &QCheckBox::clicked, [](bool checked) {
+        mainwindow->setWindowFlag(Qt::WindowStaysOnTopHint, checked);
+        });
+    pin->click();
 }
 
 void central_widget::clear(){
