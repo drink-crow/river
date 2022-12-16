@@ -46,7 +46,7 @@ void User::draw_path(const HttpRequestPtr &req,
     if (fileUpload.parse(req) != 0 || fileUpload.getFiles().size() != 1)
     {
         auto resp = HttpResponse::newHttpResponse();
-        resp->setBody("Must only be one file");
+        resp->setBody("VVVVVVVVVVVVVV\nMust only be one file\n^^^^^^^^^^^^^\n");
         resp->setStatusCode(k403Forbidden);
         callback(resp);
         return;
@@ -58,11 +58,11 @@ void User::draw_path(const HttpRequestPtr &req,
     QPen pen;
     QBrush brush;
 
-    auto ba = QByteArray::fromBase64(file.fileData());
-    QDataStream steam(ba);
+    QByteArray buffer(file.fileData(), file.fileLength());
+    QDataStream steam(buffer);
     steam>> line>> brush >> pen ;
 
     auto resp = HttpResponse::newHttpResponse();
-    resp->setBody("success");
+    resp->setBody("success\n");
     callback(resp);
 }

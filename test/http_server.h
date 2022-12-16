@@ -16,7 +16,8 @@ class User : public drogon::HttpController<User>
     // use METHOD_ADD to add your custom processing function here;
     METHOD_ADD(User::login,"/token?userId={1}/passwd={2}",Post);
     METHOD_ADD(User::getInfo,"/{1}/info?token={2}",Get);
-    METHOD_ADD(User::draw_path,"/path",Put);
+    // 参考命令 curl ip:port/debug_util/v1/user/path -F "file=@abc.txt"
+    METHOD_ADD(User::draw_path,"/path",Post);
     METHOD_LIST_END
     // your declaration of processing function maybe like this:
     void login(const HttpRequestPtr &req,
