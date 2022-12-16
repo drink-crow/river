@@ -323,36 +323,6 @@ namespace dcel {
             edge->end->remove(edge);
             delete edge;
         }
-
-#if RIVER_GRAPHICS_DEBUG
-        // {
-        // auto scene = debug_util::get_debug_scene();
-        
-        // auto add_line = [scene](line_half_edge* line){
-        //     double x1 = line->start->p.x;
-        //     double y1 = line->start->p.y;
-        //     double x2 = line->end->p.x;
-        //     double y2 = line->end->p.y;
-        //     scene->addLine(x1, y1, x2, y2);
-
-        //     QPen pen;
-        //     QBrush brush;
-        //     brush.setStyle(Qt::BrushStyle::SolidPattern);
-        //     brush.setColor(Qt::red);
-
-        //     num offset = 2.5;
-        //     scene->addRect(QRectF(x1-offset,y1-offset,offset*2,offset*2),pen,brush);
-        //     scene->addRect(QRectF(x2-offset,y2-offset,offset*2,offset*2),pen,brush);
-        // };
-
-        // for(auto e:edges){
-        //     if(e->get_seg_type() == seg_type::LINETO)
-        //     {
-        //         add_line((line_half_edge*)e);
-        //     }
-        // }
-        // }
-#endif
     }
 
     void dcel::build_twin()
@@ -399,66 +369,6 @@ namespace dcel {
                 cur_e = cur_e->next;
             }
         }
-
-#if RIVER_GRAPHICS_DEBUG
-        {
-            auto scene = debug_util::get_debug_scene();
-
-            qreal space = 140;
-            QRectF outer_rect(-20,-20,space,space);
-
-            struct offset_rect 
-            {
-                void next(){
-                    if(cow == 4){
-                        move.rx() += space;
-                        move.ry() = 0;
-                        cow = 0;
-                    }else{
-                        ++cow;
-                        move.ry() += space;
-                    }
-                }
-                auto operator()() const {return move;}
-
-                QPointF move = QPointF(0,0);
-                qreal space = 140;
-                int cow = 0;
-            };
-
-            offset_rect offset;
-            QPen red_pen(Qt::red);
-            QBrush brush;
-            brush.setStyle(Qt::BrushStyle::SolidPattern);
-            brush.setColor(Qt::red);
-            for(auto e:edges){
-                scene->addRect(outer_rect.translated(offset()), red_pen);
-                scene->addLine(QLineF(qstart(e),qend(e)));
-            }
-            offset.next();
-            
-            for(auto f:faces)
-            {
-                scene->addRect(outer_rect.translated(offset()), red_pen);
-
-                auto cur = f->start;
-                do{
-                    QLineF line(qstart(cur), qend(cur));
-                    line.translate(offset());
-                    scene->addLine(line);
-                    scene->addRect(QRectF(qstart(cur),QSizeF(2,2)).translated(offset()),red_pen,brush);
-
-                    auto nor = line.normalVector().unitVector();
-                    nor.setLength(5);
-
-                    scene->addLine(QLineF(line.center(), nor.p2()-nor.p1()+line.center()));
-                    cur = cur->next;
-                }while(cur != f->start);
-
-                offset.next();
-            }
-        }
-#endif
     }
 
     line_half_edge* dcel::new_line_edge(point* start, point* end)

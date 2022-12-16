@@ -15,7 +15,7 @@ target_compile_definitions(river PUBLIC RIVER_DEVELOP_TEST)
 if(RIVER_DEVELOP_TEST)
     message(STATUS "develop mode")
     target_link_libraries(river PUBLIC debug_util)
-    # target_compile_definitions(river PRIVATE RIVER_GRAPHICS_DEBUG=1)
+    target_compile_definitions(river PRIVATE RIVER_GRAPHICS_DEBUG=1)
 endif()
 
 add_subdirectory(test)

@@ -4,8 +4,6 @@
 #include <qbrush.h>
 
 namespace debug_util {
-    QGraphicsScene* get_debug_scene();
-
     bool connect();
     void disconnect();
 

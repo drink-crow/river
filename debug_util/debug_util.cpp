@@ -10,18 +10,6 @@
 
 
 namespace debug_util {
-    QGraphicsScene* debug_scene = nullptr;
-
-    QGraphicsScene* get_debug_scene()
-    {
-        if(debug_scene == nullptr){
-            debug_scene =  new QGraphicsScene;
-        }
-        return debug_scene;
-    }
-
-    
-
     bool connect()
     {
         curl_global_init(CURL_GLOBAL_ALL);
