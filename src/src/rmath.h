@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <limits>
 #include <algorithm>
 #include <initializer_list>
@@ -23,6 +24,7 @@ namespace rmath
         vec2 operator-() const { return vec2(-x, -y); }
         vec2 operator-(const vec2& r) const { return vec2(x - r.x, y - r.y); }
         vec2 operator*(num sc) const { return vec2(x * sc, y * sc); }
+        vec2 operator/(num sc) const { return vec2(x / sc, y / sc); }
 
         bool operator==(const vec2& r) const { return x == r.x && y == r.y; }
         bool operator!=(const vec2& r) const { return !(*this == r); }
@@ -32,6 +34,18 @@ namespace rmath
         num cross(const vec2& p) const { return x*p.y - p.x*y; }
         // 求模的平方
         num dist2() const { return x * x + y * y; }
+        num dist() const { return std::sqrt(dist2()); }
+
+        // 弧度制
+        vec2 rotated(num rad) const {
+            double cos = (std::cos)(rad); double sin = (std::sin)(rad); return vec2(cos * x - sin * y, sin * x + cos * y);
+        }
+        // 弧度制
+        vec2& rotate(num rad) { *this = rotated(rad); return *this; }
+
+        vec2 normalization() const { num l = dist(); return *this / l; }
+        // 归一化
+        vec2& normalizate() { *this = normalization(); return *this; }
     };
 
     vec2 operator*(vec2::num sc, const vec2& v);

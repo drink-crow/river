@@ -42,6 +42,16 @@ namespace dcel {
         }
     }
 
+    void qline_arrow(const half_edge* e, const QPen& pen = QPen())
+    {
+        debug_util::show_line(qline(e), pen);
+        vec2 center = (e->start->p + e->end->p) / 2;
+        
+        vec2 v = (e->end->p - e->start->p).normalizate()*5;
+        debug_util::show_line(QLineF(toqt(center),toqt(v.rotated(pi * 3/4) + center)), pen);
+        debug_util::show_line(QLineF(toqt(center), toqt(v.rotated(-pi * 3 / 4) + center)), pen);
+    }
+
 #endif
 
     bool vec2_compare_func(const ::rmath::vec2& r, const ::rmath::vec2& l)
@@ -174,10 +184,6 @@ namespace dcel {
         edges.clear();
         for(auto &e:sort_vector){
             edges.push_back(e.edge);
-        }
-
-        for (auto& e : sort_vector) {
-            debug_util::show_line(qline(e.edge.edge));
         }
     }
 
@@ -369,8 +375,21 @@ namespace dcel {
             auto cur_e = e;
             point* loop_start = e->start;
             while(cur_e->next == nullptr) {
+                {
+                    qline_arrow(cur_e, QPen(Qt::red));
+                    for (auto _e : cur_e->end->edges) {
+                        if(_e.is_emit) {
+                            debug_util::show_line(qline(_e.edge));
+                        }
+                    }
+                }
+
+
                 cur_e->face = f;
                 auto next = cur_e->end->get_next(cur_e);
+                {
+                    qline_arrow(next, QPen(Qt::blue));
+                }
                 cur_e->next = next;
                 next->prev = cur_e;
 
