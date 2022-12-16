@@ -34,13 +34,6 @@ namespace debug_util {
         curl_global_cleanup();
     }
 
-    size_t read_callback(char* ptr, size_t size, size_t nmemb, void* userdata)
-    {
-        auto steam = (QDataStream*)userdata;
-        return steam->readRawData(ptr, size*nmemb);
-        
-    }
-
     int my_trace(CURL* handle, curl_infotype type,
         char* data, size_t size,
         void* userp)
@@ -86,13 +79,11 @@ namespace debug_util {
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     }
 
-    void show_line(const QLineF& l, const QPen& pen, const QBrush& brush)
+    void show_line(const QLineF& l, const QPen& pen)
     {
         QByteArray buffer;
         QDataStream stream(&buffer, QIODeviceBase::WriteOnly);
-        stream << l << pen << brush;
-        //stream.device().
-        //auto base64 = buffer.toBase64();
+        stream << l << pen;
 
         CURL* curl = curl_easy_init();
 

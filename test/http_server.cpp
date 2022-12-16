@@ -3,6 +3,8 @@
 #include <qbrush.h>
 #include <qpen.h>
 
+#include "qtview.h"
+
 using namespace debug_util::v1;
 
 // Add definition of your processing function here
@@ -53,14 +55,8 @@ void User::draw_path(const HttpRequestPtr &req,
     }
 
     auto &file = fileUpload.getFiles()[0];
-    
-    QLineF line;
-    QPen pen;
-    QBrush brush;
-
     QByteArray buffer(file.fileData(), file.fileLength());
-    QDataStream steam(buffer);
-    steam>> line>> brush >> pen ;
+    view->paser_file_thread(buffer, "line");
 
     auto resp = HttpResponse::newHttpResponse();
     resp->setBody("success\n");

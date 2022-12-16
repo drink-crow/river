@@ -10,37 +10,23 @@
 #include <qimage.h>
 #include <qgraphicsview.h>
 #include <QThread>
+#include <qtmetamacros.h>
+#include <qwidget.h>
+#include "qpushbutton.h"
 
 #include "debug_util.h"
 #include "web_server.h"
-
-class QtView : public QGraphicsView
-{
-public:
-    QtView(QGraphicsScene* scene = nullptr, QWidget* parent = nullptr) : QGraphicsView(scene, parent){
-        setBaseSize(800, 600);
-        setDragMode(QGraphicsView::DragMode::ScrollHandDrag);
-    }
-
-    
-
-protected:
+#include "qtview.h"
+#include "central_widget.h"
 
 
-};
-
-QtView* view = nullptr;
 
 int main(int argc, char** argv)
 {
     QApplication app(argc, argv);
     QMainWindow mainwindow;
 
-    auto scene = debug_util::get_debug_scene();
-
-    view = new QtView(scene);
-    view->setAcceptDrops(true);
-    mainwindow.setCentralWidget(view);
+    mainwindow.setCentralWidget(new central_widget);
     mainwindow.show();
 
     web_server_controller web_app;
