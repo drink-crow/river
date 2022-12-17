@@ -10,6 +10,7 @@ QtView::QtView(QGraphicsScene* scene, QWidget* parent) : QGraphicsView(scene, pa
         scale(1, -1);
 
         connect(this, &QtView::new_file, this, &QtView::paser_file);
+        clear();
 }
 
 void QtView::paser_file_thread(QByteArray buffer, QString type)
@@ -27,6 +28,12 @@ void QtView::paser_file(QByteArray buffer, QString type)
 
         draw_line(line,pen);
     }
+}
+
+void QtView::clear()
+{
+    scene()->clear();
+    scene()->addRect(QRect(-250,-250,500,500));
 }
 
 void QtView::draw_line(const QLineF& l, const QPen& pen)

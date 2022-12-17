@@ -375,20 +375,17 @@ namespace dcel {
             auto cur_e = e;
             point* loop_start = e->start;
             while(cur_e->next == nullptr) {
-                {
-                    qline_arrow(cur_e, QPen(Qt::red));
-                    for (auto _e : cur_e->end->edges) {
-                        if(_e.is_emit) {
-                            debug_util::show_line(qline(_e.edge));
-                        }
-                    }
-                }
-
-
                 cur_e->face = f;
                 auto next = cur_e->end->get_next(cur_e);
                 {
-                    qline_arrow(next, QPen(Qt::blue));
+                    //// 图形调试get_next边的选择
+                    //qline_arrow(cur_e, QPen(Qt::red));
+                    //for (auto _e : cur_e->end->edges) {
+                    //    if (_e.is_emit && _e.edge->prev == nullptr) {
+                    //        debug_util::show_line(qline(_e.edge));
+                    //    }
+                    //}
+                    //qline_arrow(next, QPen(Qt::blue));
                 }
                 cur_e->next = next;
                 next->prev = cur_e;

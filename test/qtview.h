@@ -20,6 +20,7 @@ signals:
 public slots:
     void paser_file(QByteArray buffer, QString type);
 
+    void clear();
     void draw_line(const QLineF& l, const QPen& pen);
     void draw_rect(const QRectF& r, const QPen& pen, const QBrush& brush);
 

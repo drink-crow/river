@@ -4,9 +4,12 @@
 #include "QHBoxLayout"
 #include "QPushButton"
 #include "qcheckbox.h"
+#include "qwindow.h"
 
 #include "main_window.h"
 #include "qtview.h"
+#include <qnamespace.h>
+#include <qwindowdefs.h>
 
 central_widget::central_widget(QWidget* parent) : QWidget(parent)
 {
@@ -25,10 +28,11 @@ central_widget::central_widget(QWidget* parent) : QWidget(parent)
     hlayout->addWidget(pin);
     connect(pin, &QCheckBox::clicked, [](bool checked) {
         mainwindow->setWindowFlag(Qt::WindowStaysOnTopHint, checked);
+        mainwindow->show();
         });
     pin->click();
 }
 
 void central_widget::clear(){
-    view->scene()->clear();
+    view->clear();
 }

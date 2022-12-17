@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
     <Type Name="rmath::vec2">
-        <DisplayString>{x}, {y}</DisplayString>
+        <DisplayString>{x,g}, {y,g}</DisplayString>
     </Type>
     <Type Name="dcel::point">
-        <DisplayString>{p}</DisplayString>
+        <DisplayString>{{{p}}}</DisplayString>
+    </Type>
+    <Type Name="dcel::half_edge">
+      <DisplayString>{start}, {end}</DisplayString>
     </Type>
 </AutoVisualizer>
