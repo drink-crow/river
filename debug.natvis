@@ -7,6 +7,6 @@
         <DisplayString>{{{p}}}</DisplayString>
     </Type>
     <Type Name="dcel::half_edge">
-      <DisplayString>{start}, {end}</DisplayString>
+      <DisplayString>{*start}, {*end}</DisplayString>
     </Type>
 </AutoVisualizer>

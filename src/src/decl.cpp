@@ -398,6 +398,82 @@ namespace dcel {
                 cur_e = cur_e->next;
             }
         }
+
+        // 建立好的 face 需要删除重合的部分
+        decltype(faces) old_face;
+        old_face.swap(faces);
+        while (!old_face.empty())
+        {
+            auto f = old_face.back();
+            auto new_in = split_face(f);
+
+            if (new_in) {
+                old_face.push_back(new_in);
+            }
+            else
+            {
+                old_face.pop_back();
+                faces.push_back(f);
+            }
+        }
+
+        {
+            // 图形调试所有的 face
+            offset_rect offset;
+            QPen red_pen(Qt::red);
+            for (auto f : faces)
+            {
+                auto cur = f->start;
+
+                do
+                {
+                    debug_util::show_rect(QRectF(-10,-10,120,120).translated(offset()), red_pen);
+                    debug_util::show_line(offset(qline(cur)));
+                    vec2 center = (cur->start->p + cur->end->p) / 2;
+
+                    vec2 v = (cur->end->p - cur->start->p).normalizate() * 5;
+                    debug_util::show_line(offset(QLineF(toqt(center), toqt(v.rotated(pi * 3 / 4) + center))), red_pen);
+                    debug_util::show_line(offset(QLineF(toqt(center), toqt(v.rotated(-pi * 3 / 4) + center))), red_pen);
+
+                    cur = cur->next;
+                } while (cur != f->start);
+
+                offset.next();
+            }
+        }
+    }
+
+    face* dcel::split_face(face* f)
+    {
+        auto start = f->start;
+        auto cur = start;
+        std::map<point*, half_edge*> point_index;
+
+        do {
+            auto it = point_index.find(cur->end);
+            if (it == point_index.end()) {
+                point_index.insert(std::make_pair(cur->end, cur));
+                cur = cur->next;
+                continue;
+            }
+
+            // 发现重合的部分
+            auto left = new face;
+            auto e1 = it->second;
+            auto e2 = e1->next;
+            auto e3 = cur;
+            auto e4 = cur->next;
+
+            e1->next = e4;
+            e4->prev = e1;
+
+            left->start = e2;
+            e2->prev = e3;
+            e3->next = e2;
+
+            return left;
+        } while (cur != start);
+        return nullptr;
     }
 
     line_half_edge* dcel::new_line_edge(point* start, point* end)

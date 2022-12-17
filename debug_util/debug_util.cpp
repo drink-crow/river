@@ -85,7 +85,7 @@ namespace debug_util {
         curl_mime_type(part, "multipart/form-data");
         curl_easy_setopt(curl, CURLOPT_MIMEPOST, multipart);
 
-        curl_easy_setopt(curl, CURLOPT_URL, "127.0.0.1:5569/debug_util/v1/user/path");
+        curl_easy_setopt(curl, CURLOPT_URL, "127.0.0.1:5569/debug_util/v1/user/line");
         auto res = curl_easy_perform(curl);
         curl_mime_free(multipart);
         curl_easy_cleanup(curl);
@@ -93,6 +93,25 @@ namespace debug_util {
 
     void show_rect(const QRectF& r, const QPen& pen, const QBrush& brush)
     {
+        QByteArray buffer;
+        QDataStream stream(&buffer, QIODeviceBase::WriteOnly);
+        stream << r << pen << brush;
 
+        CURL* curl = curl_easy_init();
+
+        //set_curl_debug(curl);
+
+        curl_mime* multipart = curl_mime_init(curl);
+        curl_mimepart* part = curl_mime_addpart(multipart);
+        curl_mime_data(part, buffer.data(), buffer.size());
+        curl_mime_filename(part, "file");
+        curl_mime_name(part, "path.bin");
+        curl_mime_type(part, "multipart/form-data");
+        curl_easy_setopt(curl, CURLOPT_MIMEPOST, multipart);
+
+        curl_easy_setopt(curl, CURLOPT_URL, "127.0.0.1:5569/debug_util/v1/user/rect");
+        auto res = curl_easy_perform(curl);
+        curl_mime_free(multipart);
+        curl_easy_cleanup(curl);
     }
 }

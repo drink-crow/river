@@ -166,6 +166,9 @@ private:
         void build_twin();
         // 将 edge 中的 prev 和 next 连接起来，形成 face
         void build_face();
+        // 如果有重合的点，则在重合的点分成2个face，分离后的face任有可能包含重合点
+        // 没有重合返回 nullptr
+        [[nodiscard]] face* split_face(face*);
 
         set_type current_set_type = set_type::A;
 

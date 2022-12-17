@@ -1,4 +1,5 @@
 #include "qtview.h"
+#include <qbrush.h>
 
 QtView* view = nullptr;
 
@@ -28,12 +29,20 @@ void QtView::paser_file(QByteArray buffer, QString type)
 
         draw_line(line,pen);
     }
+    else if (type == "rect") {
+        QRectF rect;
+        QPen pen;
+        QBrush brush;
+        QDataStream steam(buffer);
+        steam >> rect >> pen >> brush;
+        draw_rect(rect,pen,brush);
+    }
 }
 
 void QtView::clear()
 {
     scene()->clear();
-    scene()->addRect(QRect(-250,-250,500,500));
+    // scene()->addRect(QRect(-250,-250,500,500));
 }
 
 void QtView::draw_line(const QLineF& l, const QPen& pen)
