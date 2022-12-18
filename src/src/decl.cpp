@@ -420,6 +420,7 @@ namespace dcel {
         {
             // 图形调试所有的 face
             offset_rect offset;
+            offset.space = QPointF(120, 200);
             QPen red_pen(Qt::red);
             for (auto f : faces)
             {
@@ -427,7 +428,7 @@ namespace dcel {
 
                 do
                 {
-                    debug_util::show_rect(QRectF(-10,-10,120,120).translated(offset()), red_pen);
+                    debug_util::show_rect(QRectF(-10,-40,120,200).translated(offset()), red_pen);
                     debug_util::show_line(offset(qline(cur)));
                     vec2 center = (cur->start->p + cur->end->p) / 2;
 
