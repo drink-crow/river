@@ -1,0 +1,3 @@
+[submodule "third_parts/Clipper2"]
+	path = third_parts/Clipper2
+	url = https://github.com/drink-crow/Clipper2.git
