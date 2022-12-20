@@ -28,7 +28,6 @@ namespace vatti
 
         // if segment == nullptr, it is line point;
         Seg* next_seg;
-        Seg* prev_seg;
         vertex* next;
         vertex* prev;
         vertex_flags flags = vertex_flags::none;
@@ -57,6 +56,7 @@ namespace vatti
         vertex* new_vertex();
         void add_local_min(vertex* vert, PathType, bool is_open);
 
+        // 使用 object_pool 提高内存申请的效率和放置内存泄露
         boost::object_pool<vertex> vertex_pool;
         std::vector<vertex*> paths_start;
         std::vector<local_minima*> local_minima_list;

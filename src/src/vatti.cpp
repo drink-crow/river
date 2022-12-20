@@ -6,6 +6,7 @@ namespace vatti
     using namespace river;
     using namespace rmath;
 
+    // ToDO: 判断没齐全
     bool is_vaild(const Path& p) {
         return p.data.size() > 1;
     }
@@ -29,8 +30,6 @@ namespace vatti
         {
             if (!is_vaild(path)) continue;
 
-            
-
             constexpr auto add_segment = [](vertex* prev, vertex* mem, Seg* move_seg) {
                 prev->next = mem;
                 prev->next_seg = move_seg;
@@ -40,7 +39,6 @@ namespace vatti
                 mem->flags = vertex_flags::none;
             };
 
-            // double linked connect all vertex
             vertex *prev = nullptr, *cur = nullptr;
             vertex* first = new_vertex();
             paths_start.push_back(first);
@@ -57,6 +55,7 @@ namespace vatti
                 cur = new_vertex();
                 
                 // 打断曲线使其 y 轴单调递增 
+                // ToDO: 还要处理曲线等价与一条水平线的情况
                 switch (seg->get_type())
                 {
                 case SegType::CubicTo: {
@@ -89,42 +88,45 @@ namespace vatti
                 }
                     break;
                 default:
+                    // ToDO: 别的曲线类型
+                    // ToDO: 删去重复的直线
                     add_segment(prev, cur, seg->deep_copy());
                     break;
                 }
 
                 prev = cur;
             }
-            // merge first and last vertex, abort last vertex
+            // ToDO: 将最后一点合并至起点，这里还应该判断时候闭合了，没有的话给它拉一条直线自动闭合
             add_segment(cur->prev, first, cur->prev->next_seg);
 
             // form local minma
 
             bool going_down, going_down0;
-            // check if polygon is completely flat
-
-
-            cur = first;
-            prev = cur->prev;
-           
-            going_down = first->pt.y < first->prev->pt.y;
-            going_down0 = going_down;
+            {
+                // ToDO: 这里要补充往前找第一个不为水平的比较，顺便检查是不是完全水平的一个多边形
+                going_down = first->pt.y < first->prev->pt.y;
+                going_down0 = going_down;
+            }
             prev = first;
             cur = first->next;
             while (cur != first)
             {
+                // 水平线会被跳过
+                // 水平线的的放置规则在后面的扫描过程处理
                 if (cur->pt.y > prev->pt.y && going_down) {
-                    prev->flags = prev->flags | vertex_flags::local_max;
                     going_down = false;
+                    add_local_min(prev, polytype, is_open);
                 }
                 else if (cur->pt.y < prev->pt.y && !going_down) {
+                    prev->flags = prev->flags | vertex_flags::local_max;
                     going_down = true;
-                    add_local_min(prev, polytype, is_open);
                 }
 
                 prev = cur;
                 cur = cur->next;
             }
+
+            // ToDO: 还有最后的没处理
         }
     }
     vertex* clipper::new_vertex()
