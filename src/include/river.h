@@ -1,80 +1,106 @@
 #pragma once
 
 #include <type_traits>
+#include <vector>
+#include "rmath.h"
 
 namespace river {
 
-enum class seg_type : int
+enum class SegType : int
 {
-    MOVETO,
-    LINETO,
-    ARCTO,
-    CUBICTO
+    MoveTo,
+    LineTo,
+    ArcTo,
+    CubicTo
 };
 
-enum class set_type
+enum class PathType
 {
-    A,
-    B
+    Subject, Clip
 };
 
-namespace path {
-    struct point {
-        double x;
-        double y;
+
+using Point = rmath::vec2;
+
+    struct Seg
+    {
+        virtual const Point& get_target() const = 0;
+        virtual SegType get_type() const = 0;
+        virtual Seg* deep_copy() const = 0;
     };
 
-    struct seg
+    struct Seg_moveto : public Seg
     {
-        virtual const point& get_target() const = 0;
-        virtual seg_type get_type() const = 0;
+        Point target;
+
+        Seg_moveto(const Point& p) :target(p) {}
+        virtual const Point& get_target() const override;
+        virtual SegType get_type() const override;
+        virtual Seg* deep_copy() const override {
+            return new Seg_moveto{ target };
+        }
     };
 
-    struct seg_moveto : public seg
+    struct Seg_lineto : public Seg
     {
-        point target;
+        Point target;
 
-        const point & get_target() const override;
-        seg_type get_type() const override;
+        Seg_lineto(const Point& p) :target(p) {}
+        const Point & get_target() const override;
+        SegType get_type() const override;
+        virtual Seg* deep_copy() const override {
+            return new Seg_lineto{ target };
+        }
     };
 
-    struct seg_lineto : public seg
+    struct Seg_arcto : public Seg
     {
-        point target;
-
-        const point & get_target() const override;
-        seg_type get_type() const override;
-    };
-
-    struct seg_arcto : public seg
-    {
-        point target;
-        point center;
+        Point target;
+        Point center;
         bool longarc;
 
-        const point & get_target() const override;
-        seg_type get_type() const override;
+        Seg_arcto(const Point& _target, const Point& c, bool _longarc) :
+            target(_target), center(c), longarc(_longarc) { }
+        const Point & get_target() const override;
+        SegType get_type() const override;
+        virtual Seg* deep_copy() const override {
+            return new Seg_arcto{ target,center,longarc };
+        }
     };
 
-    struct seg_cubicto : public seg
+    struct Seg_cubicto : public Seg
     {
-        point ctrl_point1;
-        point ctrl_point2;
-        point target;
+        Point ctrl_Point1;
+        Point ctrl_Point2;
+        Point target;
 
-        const point & get_target() const override;
-        seg_type get_type() const override;
+        Seg_cubicto(const Point& ctrl1, const Point& ctrl2, const Point& p) :
+            ctrl_Point1(ctrl1), ctrl_Point2(ctrl2), target(p) {}
+        const Point & get_target() const override;
+        SegType get_type() const override;
+        virtual Seg* deep_copy() const override {
+            return new Seg_cubicto{ ctrl_Point1,ctrl_Point2,target };
+        }
     };
-}
+
+    struct Path
+    {
+        std::vector<Seg*> data;
+
+        ~Path() { for (auto Seg : data) delete Seg; }
+    };
+
+    using Paths = std::vector<Path>;
+
 
 namespace traits {
     struct unknow_tag {};
-    struct point_tag {};
+    struct Point_tag {};
     struct line_tag {};
     struct arc_tag {};
     struct cubic_tag {};
     struct box_tag {};
-    struct point_type {};
+    struct Point_type {};
 
     struct min_corner {};
     
@@ -84,38 +110,38 @@ namespace traits {
     template<typename T, int i> struct access {};
 
     template<>
-    struct tag<path::point>
+    struct tag<Point>
     {
-        typedef point_tag type ;
+        typedef Point_tag type ;
     };
 
     template<>
-    struct coordinate_type<path::point>
+    struct coordinate_type<Point>
     {
         typedef double type ;
     };
 
     template<>
-    struct access<path::point, 0>
+    struct access<Point, 0>
     {
-        static inline double get(const path::point& p)
+        static inline double get(const Point& p)
         {
             return p.x;
         }
-        static inline void set(path::point& p, const double& value)
+        static inline void set(Point& p, const double& value)
         {
             p.x = value;
         }
     };
 
     template<>
-    struct access<path::point, 1>
+    struct access<Point, 1>
     {
-        static inline double get(const path::point& p)
+        static inline double get(const Point& p)
         {
             return p.y;
         }
-        static inline void set(path::point& p, const double& value)
+        static inline void set(Point& p, const double& value)
         {
             p.y = value;
         }

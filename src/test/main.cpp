@@ -3,6 +3,7 @@
 #include <qline.h>
 #include <qpoint.h>
 
+//#include "clipper2/clipper.h"
 
 int main(int argc, char** argv)
 {
@@ -51,6 +52,42 @@ int main(int argc, char** argv)
     add_path(A, &river);
     add_path(B, &river);
     river.process();
+
+#if 0
+    {
+        using namespace Clipper2Lib;
+        Paths64 subject, clip, solution;
+        subject.push_back(MakePath("0, 0, 100, 0, 110, 20, 110, 80, 100, 100, 0, 100"));
+        clip.push_back(MakePath("50, 20, 110, 20, 150, 20, 150, 80, 110, 80, 50, 80"));
+        solution = Intersect(subject, clip, FillRule::Positive);
+
+        for (auto& path : subject)
+        {
+            auto last = path.back();
+            for (auto& p : path) {
+                debug_util::show_line(QLineF(last.x, last.y, p.x, p.y));
+                last = p;
+            }
+        }
+        for (auto& path : clip)
+        {
+            auto last = path.back();
+            for (auto& p : path) {
+                debug_util::show_line(QLineF(last.x, last.y, p.x, p.y));
+                last = p;
+            }
+        }
+
+        for(auto& path:solution)
+        {
+            auto last = path.back();
+            for(auto& p : path){
+                debug_util::show_line(QLineF(last.x,last.y,p.x,p.y ));
+                last = p;
+            }
+        }
+    }
+#endif
 
     debug_util::disconnect();
     return 0;

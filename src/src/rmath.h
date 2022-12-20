@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include <cmath>
 #include <limits>
 #include <algorithm>
@@ -83,4 +84,14 @@ namespace rmath
 
     // 计算点投影到（有限长）线段的点是否位于线段内
     bool point_project_in_segment(const vec2& p, const vec2& p0, const vec2& p1);
+
+    struct bezier_cubic
+    {
+        vec2 p0, p1, p2, p3;
+
+        // 分离出的每一部分在 y 轴上单调
+        [[nodiscard]]int split_y(double* t1, double* t2) const;
+        void split(double* t, bezier_cubic* out, size_t size) const;
+        void split(double t, bezier_cubic* out1, bezier_cubic* out2) const;
+    };
 }

@@ -93,11 +93,11 @@ namespace dcel {
         half_edge* next = nullptr; // 同一个面下的下一个半边
         half_edge* prev = nullptr; // 同一个面下的前一个半边
 
-        set_type type = set_type::A;
+        PathType type = PathType::Subject;
 
         virtual ~half_edge() = default;
 
-        virtual seg_type get_seg_type() const = 0;
+        virtual SegType get_seg_type() const = 0;
         virtual ::rmath::rect get_boundary() const = 0;
 
         void add_break_point(const ::rmath::vec2& bp) {
@@ -118,7 +118,7 @@ namespace dcel {
 
     struct line_half_edge : public half_edge
     {
-        virtual seg_type get_seg_type() const override { return seg_type::LINETO; }
+        virtual SegType get_seg_type() const override { return SegType::LINETO; }
         virtual ::rmath::rect get_boundary() const override {
             return rect::from({start->p, end->p});
         }
@@ -129,7 +129,7 @@ namespace dcel {
 
     // struct arc_half_edge : public half_edge
     // {
-    //     virtual seg_type get_seg_type() const override { return seg_type::ARCTO; }
+    //     virtual SegType get_seg_type() const override { return SegType::ARCTO; }
     //     virtual ::rmath::rect get_boundary() const override {
     //         return rect::from({start->p, end->p});
     //     }
@@ -147,8 +147,8 @@ namespace dcel {
     class dcel
     {
     public:
-        void set_current_set_type(set_type);
-        set_type get_current_set_type() const;
+        void set_current_path_type(PathType);
+        PathType get_current_path_type() const;
 
         void add_line(num x1, num y1, num x2, num y2);
         void add_arc();
@@ -170,7 +170,7 @@ private:
         // 没有重合返回 nullptr
         [[nodiscard]] face* split_face(face*);
 
-        set_type current_set_type = set_type::A;
+        PathType current_path_type = PathType::Subject;
 
         std::set<point*, point_less_operator> point_set;
         std::set<half_edge*> edges;

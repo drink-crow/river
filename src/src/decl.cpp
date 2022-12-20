@@ -165,7 +165,7 @@ namespace dcel {
             auto le = l.edge;
             auto re = r.edge;
 
-            if(le.edge->get_seg_type() == seg_type::LINETO && re.edge->get_seg_type() == seg_type::LINETO)
+            if(le.edge->get_seg_type() == SegType::LINETO && re.edge->get_seg_type() == SegType::LINETO)
             {
                 if(l.data.angle < r.data.angle) return true;
                 if(l.data.angle > r.data.angle) return false;
@@ -417,6 +417,7 @@ namespace dcel {
             }
         }
 
+#if 0
         {
             // 图形调试所有的 face
             offset_rect offset;
@@ -442,6 +443,7 @@ namespace dcel {
                 offset.next();
             }
         }
+#endif
     }
 
     face* dcel::split_face(face* f)
