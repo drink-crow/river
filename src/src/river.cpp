@@ -1,9 +1,14 @@
 #include "river.h"
 #include <boost/spirit/include/qi.hpp>
-#include <boost/phoenix/phoenix.hpp>
-
 #include <boost/fusion/container.hpp>
-#include <boost/fusion/sequence.hpp>
+#include <boost/fusion/include/adapt_struct.hpp>
+#include <boost/bind/bind.hpp>
+
+BOOST_FUSION_ADAPT_STRUCT(
+    river::Point,
+    (double, x)
+    (double, y)
+)
 
 namespace river
 {
@@ -47,78 +52,61 @@ namespace river
         return Point(x, y);
     }
 
-    
-
-    struct moveto_sa
-    {
-        template <typename Container, typename Item>
-        struct result
-        {
-            typedef void type;
-        };
-
-        template <typename Path, typename Point>
-        void operator()(Path& c, Point const& p) const
-        {
-            c.moveto(p);
-        }
-
-    };
-
-    void hello(boost::fusion::vector<double, double> const& p) {
-        std::cout << boost::fusion::at_c<0>(p)  << ","  << boost::fusion::at_c<1>(p) << std::endl;
+    void hello(Point const& p) {
+        std::cout << p.x << p.y << std::endl;
     }
 
-    namespace qi = boost::spirit::qi;
-    typedef boost::fusion::vector<double, double> _p;
+    using cubic_pack = boost::fusion::vector<char, Point, Point, Point>;
 
-    Point get_p(_p const& p) {
-        return Point(boost::fusion::at_c<0>(p), boost::fusion::at_c<1>(p));
-    }
-
-    struct move_to_sa
+    struct writer
     {
-        void operator()(_p const& p, qi::unused_type, qi::unused_type) const
+        void moveto(Point const& i) const
         {
-            _path->moveto(get_p(p));
+            _path->moveto(i);
         }
 
-        move_to_sa(Path* p) : _path(p) { }
+        void lineto(const Point& tp) const
+        {
+            _path->lineto(tp);
+        }
+
+
+        void cubicto(cubic_pack const& tri) const
+        {
+            _path->cubicto(boost::fusion::at_c<1>(tri), boost::fusion::at_c<2>(tri), boost::fusion::at_c<3>(tri));
+        }
+
         Path* _path;
     };
 
     Path make_path(const char* s)
     {
+        using namespace boost::spirit;
+        using boost::spirit::qi::char_;
+        using boost::spirit::qi::double_;
+        using boost::placeholders::_1;
+        using it = std::string::iterator;
+
         namespace ascii = boost::spirit::ascii;
 
-        using namespace boost;
-        using namespace boost::spirit;
-
-        using std::string;
-        using qi::char_;
-        using qi::double_;
-
         Path res;
+        writer w;
+        w._path = &res;
 
-
-        qi::rule<string::iterator, _p(), ascii::space_type >
-            point_ = qi::double_[phoenix::at_c<0>(_val) = _1]
-            >> qi::double_[phoenix::at_c<1>(_val) = _1];
-
-        //pt_rule point_p;
-        auto move_p = (char_('m') >> point_)[move_to_sa(&res)];
-        //auto line_p = char_('l') >> point_;
-        //auto arc_p = char_('a') >> point_ >> point_;
-        //auto cubic_p = char_('c') >> point_ >> point_ >> point_;
-
-        //auto path = *(move_p | line_p | arc_p | cubic_p);
+        qi::rule<it, Point(), ascii::space_type> point_p;
+        qi::rule<it, cubic_pack(), ascii::space_type> cubic_p;
+        point_p %= double_ >> double_;
+        auto move_p = char_('m') >> point_p[boost::bind(&writer::moveto, &w, _1)];
+        auto line_p = char_('l') >> point_p[boost::bind(&writer::lineto, &w, _1)];
+        cubic_p %= (char_('c') >> point_p >> point_p >> point_p)[boost::bind(&writer::cubicto, &w, _1)];
+        auto path = *(move_p | line_p | cubic_p);
 
         std::string str(s);
-        if (!phrase_parse(str.begin(), str.end(), move_p, ascii::space)) {
-            //res.data.clear();
+        Point p;
+        if (!qi::phrase_parse(str.begin(), str.end(), path, ascii::space)) {
+            res.data.clear();
         }
 
-        res.data.clear();
         return res;
     }
 }

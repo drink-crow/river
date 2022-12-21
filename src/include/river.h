@@ -87,6 +87,11 @@ using Point = rmath::vec2;
     {
         std::vector<Seg*> data;
 
+        Path() = default;
+        Path(Path&& l) {
+            data.swap(l.data);
+        }
+
         ~Path() { for (auto Seg : data) delete Seg; }
         void moveto(const Point& tp) { data.push_back(new Seg_moveto(tp)); }
         void moveto(double x, double y) { data.push_back(new Seg_moveto({ x,y })); }

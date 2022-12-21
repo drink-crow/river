@@ -54,7 +54,7 @@ int main(int argc, char** argv)
     river.process();
 
     //river::make_path("m 0 0 l 100 100 c 0 100 0 200 100 200 l 0 0");
-    river::make_path("m 10 20");
+    auto p(river::make_path("m 10 20 l 50 60 c 22 22 6 6 5 7"));
 
 #if 0
     {
