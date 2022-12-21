@@ -88,6 +88,16 @@ using Point = rmath::vec2;
         std::vector<Seg*> data;
 
         ~Path() { for (auto Seg : data) delete Seg; }
+        void moveto(const Point& tp) { data.push_back(new Seg_moveto(tp)); }
+        void moveto(double x, double y) { data.push_back(new Seg_moveto({ x,y })); }
+        void lineto(const Point& tp) { data.push_back(new Seg_lineto(tp)); }
+        void lineto(double x, double y) { data.push_back(new Seg_lineto({x,y})); }
+        // 三点确定一个圆弧
+        //void arcto(const Point& tp, const Point& middle);
+        //void arcto(Point const& center, double sweepRad);
+        void cubicto(const Point& ctrl1, const Point& ctrl2,const Point& end) { data.push_back(new Seg_cubicto(ctrl1, ctrl2, end)); }
+        // 二阶自动升三阶
+        //void cubicto(const Point& end, const Point& ctrl);
     };
 
     using Paths = std::vector<Path>;
@@ -164,5 +174,7 @@ public:
 private:
     processor_private* pptr;
 };
+
+Path make_path(const char* s);
 
 }

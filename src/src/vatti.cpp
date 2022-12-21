@@ -126,7 +126,15 @@ namespace vatti
                 cur = cur->next;
             }
 
-            // ToDO: 还有最后的没处理
+            // 处理最后的连接，实际判断的点是 first->prev
+            if (going_down != going_down0) {
+                if (going_down0) {
+                    prev->flags = prev->flags | vertex_flags::local_max;
+                }
+                else {
+                    add_local_min(prev, polytype, is_open);
+                }
+            }
         }
     }
     vertex* clipper::new_vertex()

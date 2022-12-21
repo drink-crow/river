@@ -165,7 +165,7 @@ namespace dcel {
             auto le = l.edge;
             auto re = r.edge;
 
-            if(le.edge->get_seg_type() == SegType::LINETO && re.edge->get_seg_type() == SegType::LINETO)
+            if(le.edge->get_seg_type() == SegType::LineTo && re.edge->get_seg_type() == SegType::LineTo)
             {
                 if(l.data.angle < r.data.angle) return true;
                 if(l.data.angle > r.data.angle) return false;
@@ -288,14 +288,14 @@ namespace dcel {
         return data;
     }
 
-    void dcel::set_current_set_type(set_type new_type)
+    void dcel::set_current_path_type(PathType new_type)
     {
-        current_set_type = new_type;
+        current_path_type = new_type;
     }
 
-    set_type dcel::get_current_set_type() const
+    PathType dcel::get_current_path_type() const
     {
-        return current_set_type;
+        return current_path_type;
     }
 
     void dcel::add_line(num x1, num y1, num x2, num y2)
@@ -485,7 +485,7 @@ namespace dcel {
 
         line->start = start;
         line->end = end;
-        line->type = current_set_type;
+        line->type = current_path_type;
 
         edges.insert(line);
         start->add_edge(line, true);

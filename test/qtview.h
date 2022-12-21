@@ -23,6 +23,8 @@ public slots:
     void clear();
     void draw_line(const QLineF& l, const QPen& pen);
     void draw_rect(const QRectF& r, const QPen& pen, const QBrush& brush);
+    void draw_cubic(const QPointF& p0, const QPointF& p1, const QPointF& p2, const QPointF& p3, const QPen& pen = QPen());
+    void draw_point(const QPointF& p, const QPen& pen = QPen());
 
 protected:
 };

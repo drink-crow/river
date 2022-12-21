@@ -118,7 +118,7 @@ namespace dcel {
 
     struct line_half_edge : public half_edge
     {
-        virtual SegType get_seg_type() const override { return SegType::LINETO; }
+        virtual SegType get_seg_type() const override { return SegType::LineTo; }
         virtual ::rmath::rect get_boundary() const override {
             return rect::from({start->p, end->p});
         }

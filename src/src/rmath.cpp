@@ -51,13 +51,11 @@ namespace rmath
         //         + 3 (B - A)
         //      =  (3 D - 9 C + 9 B - 3 A) t^2 + (6 A - 12 B + 6 C) t + 3 (B - A)
 
-        double y1, y2;
         const vec2 A = p3 * 3 - p2 * 9 + p1 * 9 - p0 * 3;
         const vec2 B = p0 * 6 - p1 * 12 + p2 * 6;
         const vec2 C = (p1 - p0) * 3;
 
         double a, b, c, k;
-        double t1, t2;
 
         a = A.y;
         b = B.y;

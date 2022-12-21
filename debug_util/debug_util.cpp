@@ -67,28 +67,33 @@ namespace debug_util {
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     }
 
-    void show_line(const QLineF& l, const QPen& pen)
+    void push_data(const char* data, size_t size, const char* url)
     {
-        QByteArray buffer;
-        QDataStream stream(&buffer, QIODeviceBase::WriteOnly);
-        stream << l << pen;
-
         CURL* curl = curl_easy_init();
 
         //set_curl_debug(curl);
 
         curl_mime* multipart = curl_mime_init(curl);
         curl_mimepart* part = curl_mime_addpart(multipart);
-        curl_mime_data(part, buffer.data(), buffer.size());
+        curl_mime_data(part, data, size);
         curl_mime_filename(part, "file");
         curl_mime_name(part, "path.bin");
         curl_mime_type(part, "multipart/form-data");
         curl_easy_setopt(curl, CURLOPT_MIMEPOST, multipart);
 
-        curl_easy_setopt(curl, CURLOPT_URL, "127.0.0.1:5569/debug_util/v1/user/line");
+        curl_easy_setopt(curl, CURLOPT_URL, url);
         auto res = curl_easy_perform(curl);
         curl_mime_free(multipart);
         curl_easy_cleanup(curl);
+    }
+
+    void show_line(const QLineF& l, const QPen& pen)
+    {
+        QByteArray buffer;
+        QDataStream stream(&buffer, QIODeviceBase::WriteOnly);
+        stream << l << pen;
+
+        push_data(buffer.data(), buffer.size(), "127.0.0.1:5569/debug_util/v1/user/line");
     }
 
     void show_rect(const QRectF& r, const QPen& pen, const QBrush& brush)
@@ -97,21 +102,25 @@ namespace debug_util {
         QDataStream stream(&buffer, QIODeviceBase::WriteOnly);
         stream << r << pen << brush;
 
-        CURL* curl = curl_easy_init();
+        push_data(buffer.data(), buffer.size(), "127.0.0.1:5569/debug_util/v1/user/rect");
 
-        //set_curl_debug(curl);
+    }
 
-        curl_mime* multipart = curl_mime_init(curl);
-        curl_mimepart* part = curl_mime_addpart(multipart);
-        curl_mime_data(part, buffer.data(), buffer.size());
-        curl_mime_filename(part, "file");
-        curl_mime_name(part, "path.bin");
-        curl_mime_type(part, "multipart/form-data");
-        curl_easy_setopt(curl, CURLOPT_MIMEPOST, multipart);
+    void show_cubic(const QPointF& p0, const QPointF& p1, const QPointF& p2, const QPointF& p3, const QPen& pen)
+    {
+        QByteArray buffer;
+        QDataStream stream(&buffer, QIODeviceBase::WriteOnly);
+        stream << p0 << p1 << p2 << p3 << pen;
 
-        curl_easy_setopt(curl, CURLOPT_URL, "127.0.0.1:5569/debug_util/v1/user/rect");
-        auto res = curl_easy_perform(curl);
-        curl_mime_free(multipart);
-        curl_easy_cleanup(curl);
+        push_data(buffer.data(), buffer.size(), "127.0.0.1:5569/debug_util/v1/user/cubic");
+    }
+
+    void show_point(const QPointF& p, const QPen& pen)
+    {
+        QByteArray buffer;
+        QDataStream stream(&buffer, QIODeviceBase::WriteOnly);
+        stream << p << pen;
+
+        push_data(buffer.data(), buffer.size(), "127.0.0.1:5569/debug_util/v1/user/point");
     }
 }

@@ -53,6 +53,9 @@ int main(int argc, char** argv)
     add_path(B, &river);
     river.process();
 
+    //river::make_path("m 0 0 l 100 100 c 0 100 0 200 100 200 l 0 0");
+    river::make_path("m 10 20");
+
 #if 0
     {
         using namespace Clipper2Lib;
