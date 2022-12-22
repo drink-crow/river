@@ -21,12 +21,13 @@ enum class PathType
 
 
 using Point = rmath::vec2;
-
+using rmath::rect;
     struct Seg
     {
         virtual const Point& get_target() const = 0;
         virtual SegType get_type() const = 0;
         virtual Seg* deep_copy() const = 0;
+        virtual rect get_boundary(const Point& from) const = 0;
     };
 
     struct Seg_moveto : public Seg
@@ -36,6 +37,7 @@ using Point = rmath::vec2;
         Seg_moveto(const Point& p) :target(p) {}
         virtual const Point& get_target() const override;
         virtual SegType get_type() const override;
+        virtual rect get_boundary(const Point& from) const { return rect(target); };
         virtual Seg* deep_copy() const override {
             return new Seg_moveto{ target };
         }
@@ -48,6 +50,7 @@ using Point = rmath::vec2;
         Seg_lineto(const Point& p) :target(p) {}
         const Point & get_target() const override;
         SegType get_type() const override;
+        virtual rect get_boundary(const Point& from) const { return rect::from({ target, from }); };
         virtual Seg* deep_copy() const override {
             return new Seg_lineto{ target };
         }
@@ -65,6 +68,9 @@ using Point = rmath::vec2;
         Seg_arcto(const Point& mid, const Point& end) : target(end) { }
         const Point & get_target() const override;
         SegType get_type() const override;
+        // ToDo 需要正确计算包围框
+        virtual rect get_boundary(const Point& from) const { return rect::from({ target, from }); };
+
         virtual Seg* deep_copy() const override {
             return new Seg_arcto{ target,center,longarc };
         }
@@ -78,8 +84,14 @@ using Point = rmath::vec2;
 
         Seg_cubicto(const Point& ctrl1, const Point& ctrl2, const Point& p) :
             ctrl_Point1(ctrl1), ctrl_Point2(ctrl2), target(p) {}
+        rmath::bezier_cubic get_cubic(const Point& from) const {
+            return rmath::bezier_cubic{from, ctrl_Point1, ctrl_Point2, target};
+        }
         const Point & get_target() const override;
         SegType get_type() const override;
+        virtual rect get_boundary(const Point& from) const {
+            return get_cubic(from).get_boundary();
+        };
         virtual Seg* deep_copy() const override {
             return new Seg_cubicto{ ctrl_Point1,ctrl_Point2,target };
         }

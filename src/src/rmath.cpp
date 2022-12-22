@@ -98,6 +98,150 @@ namespace rmath
         return 0;
     }
 
+    vec2 bezier_cubic::point_at(double t) const
+    {
+        double t2 = t * t;
+        double t3 = t2 * t;
+        double k = 1 - t;
+        double k2 = k * k;
+        double k3 = k2 * k;
+
+        return p0 * k3 + p1 * 3 * k2 * t + p2 * 3 * k * t2 + p3 * t3;
+    }
+
+    rect bezier_cubic::get_boundary() const
+    {
+        double a, b, c, k;
+        double t1, t2;
+
+        //x = A (1-t)^3 +3 B t (1-t)^2 + 3 C t^2 (1-t) + D t^3
+        //dx/dt =  3 (B - A) (1-t)^2 + 6 (C - B) (1-t) t + 3 (D - C) t^2
+        //      =  [3 (D - C) - 6 (C - B) + 3 (B - A)] t^2
+        //         + [ -6 (B - A) - 6 (C - B)] t
+        //         + 3 (B - A)
+        //      =  (3 D - 9 C + 9 B - 3 A) t^2 + (6 A - 12 B + 6 C) t + 3 (B - A)
+
+        //不能直接求拐点，因为拐点不代表xy方向上的极值
+
+        double x1, x2;
+        const vec2 A = p3 * 3 - p2 * 9 + p1 * 9 - p0 * 3;
+        const vec2 B = p0 * 6 - p1 * 12 + p2 * 6;
+        const vec2 C = (p1 - p0) * 3;
+
+        a = A.x;
+        b = B.x;
+        c = C.x;
+        k = b * b - 4 * a * c;
+
+        if (is_zero(a))
+        {
+            if (is_zero(b))
+            {
+                x1 = p0.x;
+                x2 = p3.x;
+            }
+            else
+            {
+                t1 = -c / b;
+                if (t1 > 0 && t1 < 1)
+                {
+                    x1 = point_at(t1).x;
+                    x2 = x1;
+                }
+                else
+                {
+                    x1 = p0.x;
+                    x2 = p3.x;
+                }
+            }
+        }
+        else if (k < 0)
+        {
+            x1 = p0.x;
+            x2 = p3.x;
+        }
+        else
+        {
+            k = std::sqrt(k);
+            t1 = (-b + k) / (2 * a);
+            t2 = (-b - k) / (2 * a);
+
+            if (t1 > 0 && t1 < 1)
+            {
+                x1 = point_at(t1).x;
+            }
+            else
+                x1 = p0.x;
+
+            if (t2 > 0 && t2 < 1)
+            {
+                x2 = point_at(t2).x;
+            }
+            else
+                x2 = p3.x;
+
+        }
+
+        double y1, y2;
+        a = A.y;
+        b = B.y;
+        c = C.y;
+        k = b * b - 4 * a * c;
+
+        if (is_zero(a))
+        {
+            if (is_zero(b))
+            {
+                y1 = p0.y;
+                y2 = p3.y;
+            }
+            else
+            {
+                t1 = -c / b;
+                if (t1 > 0 && t1 < 1)
+                {
+                    y1 = point_at(t1).y;
+                    y2 = y1;
+                }
+                else
+                {
+                    y1 = p0.y;
+                    y2 = p3.y;
+                }
+            }
+        }
+        else if (k < 0)
+        {
+            y1 = p0.y;
+            y2 = p3.y;
+        }
+        else
+        {
+            k = std::sqrt(k);
+            t1 = (-b + k) / (2 * a);
+            t2 = (-b - k) / (2 * a);
+
+            if (t1 > 0 && t1 < 1)
+            {
+                y1 = point_at(t1).y;
+            }
+            else
+                y1 = p0.y;
+
+            if (t2 > 0 && t2 < 1)
+            {
+                y2 = point_at(t2).y;
+            }
+            else
+                y2 = p3.y;
+        }
+
+        vec2 tp1((std::min)(x1, x2), (std::min)(y1, y2));
+        vec2 tp2((std::max)(x1, x2), (std::max)(y1, y2));
+
+        return rect::from({ p0, p3, tp1, tp2 });
+    }
+
     void bezier_cubic::split(double* t, bezier_cubic* out, size_t size) const
     {
         bezier_cubic cur = *this;

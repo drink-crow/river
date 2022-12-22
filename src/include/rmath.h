@@ -89,6 +89,8 @@ namespace rmath
     {
         vec2 p0, p1, p2, p3;
 
+        [[nodiscard]] vec2 point_at(double t) const;
+        [[nodiscard]] rect get_boundary() const;
         // 分离出的每一部分在 y 轴上单调
         [[nodiscard]]int split_y(double* t1, double* t2) const;
         void split(double* t, bezier_cubic* out, size_t size) const;

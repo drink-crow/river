@@ -52,6 +52,8 @@ namespace vatti
     public:
         void add_path(const Paths& paths, PathType polytype, bool is_open);
 
+        void process();
+
     private:
         vertex* new_vertex();
         void add_local_min(vertex* vert, PathType, bool is_open);

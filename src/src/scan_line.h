@@ -11,7 +11,6 @@ namespace boost
     {
         namespace traits
         {
-            
 
             template<>
             struct tag<::rmath::vec2> {
@@ -115,14 +114,12 @@ namespace scan_line
 
     namespace bg = boost::geometry;
 
-    typedef dcel::half_edge* key;
-    typedef ::rmath::rect box;
-    typedef double ct;
-
     template<>
     struct all_function<dcel::half_edge*>
     {
         typedef ::rmath::rect box;
+        typedef double ct;
+        typedef dcel::half_edge* key;
 
         static box get_rect(const key& in)
         {
@@ -157,11 +154,14 @@ namespace scan_line
         }
     };
 
-    typedef all_function<dcel::half_edge*> funcs;
-
+    template<class key>
     class scan_line
     {
     public:
+        typedef typename ::scan_line::all_function<key> funcs;
+        typedef typename funcs::box box;
+        typedef typename funcs::ct ct;
+
         struct seg
         {
             key key;
@@ -204,4 +204,67 @@ namespace scan_line
         std::set<scan_point*, scan_point_compare> scan_points;
         std::vector<seg*> segments;
     };
+
+    template<class key>
+    void scan_line<key>::add_segment(const key& in)
+    {
+        auto new_seg = new seg{ in, funcs::get_rect(in) };
+
+        segments.push_back(new_seg);
+
+        auto startp = get_point(bg::get<bg::min_corner, 0>(new_seg->box));
+        startp->in.push_back(new_seg);
+        auto endp = get_point(bg::get<bg::max_corner, 0>(new_seg->box));
+        endp->out.push_back(new_seg);
+    }
+
+    template<class key>
+    void scan_line<key>::process()
+    {
+        std::set<seg*> current;
+
+        for (auto p : scan_points)
+        {
+            for (auto in : p->in)
+            {
+                // 每一新添加的对象，和列表中的计算一次交点
+                for (auto c : current) {
+                    if (intersect(c->box, in->box)) {
+                        funcs::intersect(c->key, in->key);
+                    }
+                }
+
+                current.insert(in);
+            }
+
+            for (auto out : p->out) {
+                current.erase(out);
+            }
+        }
+    }
+
+    template<class key>
+    bool scan_line<key>::intersect(const box& r, const box& l) const
+    {
+        return bg::intersects(r, l);
+    }
+
+    template<class key>
+    typename scan_line<key>::scan_point* scan_line<key>::scan_line::get_point(const ct& x)
+    {
+        scan_point* res = nullptr;
+
+        auto search = scan_points.find(x);
+        if (search == scan_points.end()) {
+            res = new scan_point;
+            res->x = x;
+            scan_points.insert(res);
+        }
+        else {
+            res = *search;
+        }
+
+        return res;
+    }
+
 }

@@ -319,7 +319,7 @@ namespace dcel {
 
     void dcel::process_break()
     {
-        scan_line::scan_line scan_line;
+        scan_line::scan_line<half_edge*> scan_line;
         for(auto e:edges){
             scan_line.add_segment(e);
         }

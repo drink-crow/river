@@ -1,6 +1,30 @@
 #include "vatti.h"
 #include "rmath.h"
+#include "scan_line.h"
 #include "util.h"
+
+namespace scan_line
+{
+    using namespace vatti;
+
+    template<>
+    struct all_function<vertex*>
+    {
+        typedef ::rmath::rect box;
+        typedef double ct;
+        typedef vertex* key;
+
+        static box get_rect(const key& in)
+        {
+            return in->next_seg->get_boundary(in->pt);
+        }
+
+        static void intersect(const key& r, const key& l)
+        {
+
+        }
+    };
+}
 
 namespace vatti
 {
@@ -11,8 +35,6 @@ namespace vatti
     bool is_vaild(const Path& p) {
         return p.data.size() > 1;
     }
-
-
 
     void clipper::add_path(const Paths& paths, PathType polytype, bool is_open)
     {
@@ -193,6 +215,23 @@ namespace vatti
 
         return v;
     }
+
+    void clipper::process()
+    {
+        // 先求交点
+        scan_line::scan_line<vertex*> scaner;
+        for (auto& start : paths_start) {
+            auto cur = start;
+            do {
+                scaner.add_segment(cur);
+                cur = cur->next;
+            } while (cur != start);
+        }
+
+        scaner.process();
+
+    }
+
     void clipper::add_local_min(vertex* vert, PathType pt, bool is_open)
     {
         //make sure the vertex is added only once ...
