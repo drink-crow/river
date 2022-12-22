@@ -48,7 +48,58 @@ namespace river
         return SegType::CubicTo;
     }
 
-    Path make_path(const char* s)
+    void empty_path_move_func(path_moveto_func_para) {}
+    void empty_path_line_func(path_lineto_func_para) {}
+    void empty_path_arc_func(path_arcto_func_para) {}
+    void empty_path_cubic_func(path_cubicto_func_para) {}
+
+    void Path::traverse(const path_traverse_funcs& in_funcs, void* user) const
+    {
+        path_traverse_funcs act = in_funcs;
+        if (!act.move_to) act.move_to = empty_path_move_func;
+        if (!act.line_to) act.line_to = empty_path_line_func;
+        if (!act.arc_to) act.arc_to = empty_path_arc_func;
+        if (!act.cubic_to) act.cubic_to = empty_path_cubic_func;
+
+        Point last_p(0, 0);
+        Point cur_p = last_p;
+        for (auto& e : data) {
+            cur_p = e->get_target();
+
+            switch (e->get_type())
+            {
+            case SegType::MoveTo:
+            {
+                act.move_to(last_p, cur_p, user);
+                break;
+            }
+            case SegType::LineTo:
+            {
+                act.line_to(last_p, cur_p, user);
+                break;
+            }
+            case SegType::ArcTo:
+            {
+                auto arcto_seg = (const Seg_arcto*)(e);
+                // ToDo start_sweepRad 没有正确计算
+                act.arc_to(last_p, arcto_seg->center, arcto_seg->center,cur_p, user);
+                break;
+            }
+            case SegType::CubicTo:
+            {
+                auto cubicto_seg = (const Seg_cubicto*)(e);
+                act.cubic_to(last_p, cubicto_seg->ctrl_Point1, cubicto_seg->ctrl_Point2, cur_p, user);
+                break;
+            }
+            default:
+                break;
+            }
+
+            last_p = cur_p;
+        }
+    }
+
+    Paths make_path(const char* s)
     {
         using namespace boost::spirit;
         using boost::spirit::qi::char_;
@@ -64,20 +115,20 @@ namespace river
 
         struct writer
         {
+            Paths* _path;
+            Path& back() const { return _path->back(); }
 
-            void moveto(Point const& i) const { _path->moveto(i); }
-            void lineto(const Point& tp) const { _path->lineto(tp); }
+            void moveto(Point const& p) const { _path->push_back(Path()); back().moveto(p); }
+            void lineto(const Point& p) const { back().lineto(p); }
             void arcto(arc_pack const& pack) const {
-                _path->arcto(fusion::at_c<1>(pack), fusion::at_c<2>(pack));
+                back().arcto(fusion::at_c<1>(pack), fusion::at_c<2>(pack));
             }
             void cubicto(cubic_pack const& pack) const {
-                _path->cubicto(fusion::at_c<1>(pack), fusion::at_c<2>(pack), fusion::at_c<3>(pack));
+                back().cubicto(fusion::at_c<1>(pack), fusion::at_c<2>(pack), fusion::at_c<3>(pack));
             }
-
-            Path* _path;
         };
 
-        Path res;
+        Paths res;
         writer w;
         w._path = &res;
 
@@ -94,7 +145,7 @@ namespace river
         std::string str(s);
         Point p;
         if (!qi::phrase_parse(str.begin(), str.end(), path, ascii::space)) {
-            res.data.clear();
+            res.clear();
         }
 
         return res;

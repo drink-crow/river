@@ -1,5 +1,6 @@
 #include "vatti.h"
 #include "rmath.h"
+#include "util.h"
 
 namespace vatti
 {
@@ -99,6 +100,33 @@ namespace vatti
             // ToDO: 将最后一点合并至起点，这里还应该判断时候闭合了，没有的话给它拉一条直线自动闭合
             add_segment(cur->prev, first, cur->prev->next_seg);
 
+#if 0
+            {
+                auto cur_v = first;
+                QPen redpen(Qt::red);
+                redpen.setWidth(3);
+                do {
+                    switch (cur_v->next_seg->get_type())
+                    {
+                    case SegType::LineTo:
+                        debug_util::show_line(QLineF(toqt(cur_v->pt), toqt(cur_v->next_seg->get_target())), redpen);
+                        break;
+                    case SegType::CubicTo:
+                    {
+                        auto cubic = (const Seg_cubicto*)(cur_v->next_seg);
+                        debug_util::show_cubic(toqt(cur_v->pt), toqt(cubic->ctrl_Point1), toqt(cubic->ctrl_Point2), toqt(cur_v->next->pt), redpen);
+                        break;
+                    }
+                    default:
+                        break;
+                    }
+
+
+                    cur_v = cur_v->next;
+                } while (cur_v != first);
+            }
+#endif
+
             // form local minma
 
             bool going_down, going_down0;
@@ -135,6 +163,24 @@ namespace vatti
                     add_local_min(prev, polytype, is_open);
                 }
             }
+#if 0
+        // 图形调试
+        QPen redpen(Qt::red);
+        QPen bluePen(Qt::blue);
+        for (auto& minima : local_minima_list) {
+            debug_util::show_point(toqt(minima->pt->pt), redpen);
+        }
+        
+        auto _s = first;
+        do {
+            if ((_s->flags & vertex_flags::local_max) != vertex_flags::none) {
+                debug_util::show_point(toqt(_s->pt), bluePen);
+            }
+
+            _s = _s->next;
+        } while (_s != first);
+
+#endif
         }
     }
     vertex* clipper::new_vertex()

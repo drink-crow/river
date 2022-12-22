@@ -1,7 +1,8 @@
 #pragma once
 
 #include "debug_util.h"
-#include "rmath.h"
+#include "river.h"
+
 
 #if RIVER_GRAPHICS_DEBUG
 
@@ -30,4 +31,8 @@ struct offset_rect
     auto operator()(const QLineF& l) const { return l.translated(move); }
     auto operator()(const QPointF& p) const { return p + move; }
 };
+
+void draw_path(const river::Path& show, const QPen& pen = QPen(), const QPointF& offset = QPointF(0,0));
+void draw_path(const river::Paths& show, const QPen& pen = QPen(), const QPointF& offset = QPointF(0, 0));
+
 #endif

@@ -82,5 +82,7 @@ void QtView::draw_point(const QPointF& p, const QPen& pen)
 {
     QPointF offset(2, 2);
     QRectF rect(p - offset, p + offset);
-    scene()->addEllipse(rect, pen);
+    QBrush brush(pen.color());
+    brush.setStyle(Qt::SolidPattern);
+    scene()->addEllipse(rect, pen, brush);
 }

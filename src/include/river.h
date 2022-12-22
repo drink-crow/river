@@ -61,6 +61,7 @@ using Point = rmath::vec2;
 
         Seg_arcto(const Point& _target, const Point& c, bool _longarc) :
             target(_target), center(c), longarc(_longarc) { }
+        // ToDo 没有正确计算
         Seg_arcto(const Point& mid, const Point& end) : target(end) { }
         const Point & get_target() const override;
         SegType get_type() const override;
@@ -84,14 +85,30 @@ using Point = rmath::vec2;
         }
     };
 
+#define path_moveto_func_para const Point& from, const Point& to, void* user
+#define path_lineto_func_para const Point& from, const Point& to, void* user
+#define path_arcto_func_para const Point& from, const Point& center, const Point& start_sweepRad, const Point& to, void* user
+#define path_cubicto_func_para const Point& from, const Point& ctrl1, const Point& ctrl2, const Point& to, void* user
+    typedef void (*path_moveto_func)(path_moveto_func_para);
+    typedef void (*path_lineto_func)(path_lineto_func_para);
+    typedef void (*path_arcto_func)(path_arcto_func_para);
+    typedef void (*path_cubicto_func)(path_cubicto_func_para);
+    struct path_traverse_funcs
+    {
+        path_moveto_func   move_to = nullptr;
+        path_lineto_func   line_to = nullptr;
+        path_arcto_func    arc_to = nullptr;
+        path_cubicto_func  cubic_to = nullptr;
+    };
+
     struct Path
     {
         std::vector<Seg*> data;
 
         Path() = default;
-        Path(Path&& l) {
+        Path(Path&& l) noexcept {
             data.swap(l.data);
-        }
+        } 
 
         ~Path() { for (auto Seg : data) delete Seg; }
         void moveto(const Point& tp) { data.push_back(new Seg_moveto(tp)); }
@@ -104,6 +121,9 @@ using Point = rmath::vec2;
         void cubicto(const Point& ctrl1, const Point& ctrl2,const Point& end) { data.push_back(new Seg_cubicto(ctrl1, ctrl2, end)); }
         // 二阶自动升三阶
         //void cubicto(const Point& end, const Point& ctrl);
+
+        // 遍历所有元素，函数指针为空是安全的，会忽略对应内容
+        void traverse(const path_traverse_funcs& funcs, void* user) const;
     };
 
     using Paths = std::vector<Path>;
@@ -174,13 +194,14 @@ public:
     ~processor();
 
     void add_line(num x1, num y1, num x2, num y2);
-    
+    void add_path(const Paths& in, PathType pt);
+
     void process();
 
 private:
     processor_private* pptr;
 };
 
-Path make_path(const char* s);
+Paths make_path(const char* s);
 
 }

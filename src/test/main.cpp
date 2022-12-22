@@ -9,7 +9,10 @@ int main(int argc, char** argv)
 {
     debug_util::connect();
 
-    river::processor river;
+    using namespace river;
+    processor river;
+
+#if 0
     //river.add_line(0,0,100,0);
     //river.add_line(100,0,100,100);
     //river.add_line(100,100,0,100);
@@ -52,8 +55,10 @@ int main(int argc, char** argv)
     add_path(A, &river);
     add_path(B, &river);
     river.process();
+#endif
 
-    auto p = river::make_path("m 0 0 l 100 100 a 50 50 100 120 c 0 100 0 200 100 200 l 0 0");
+    auto p = river::make_path("m 0 0 l 100 100 c 0 70 0 250 100 200 l 0 0");
+    river.add_path(p, PathType::Subject);
 
 #if 0
     {
