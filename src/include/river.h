@@ -61,6 +61,7 @@ using Point = rmath::vec2;
 
         Seg_arcto(const Point& _target, const Point& c, bool _longarc) :
             target(_target), center(c), longarc(_longarc) { }
+        Seg_arcto(const Point& mid, const Point& end) : target(end) { }
         const Point & get_target() const override;
         SegType get_type() const override;
         virtual Seg* deep_copy() const override {
@@ -98,7 +99,7 @@ using Point = rmath::vec2;
         void lineto(const Point& tp) { data.push_back(new Seg_lineto(tp)); }
         void lineto(double x, double y) { data.push_back(new Seg_lineto({x,y})); }
         // 三点确定一个圆弧
-        //void arcto(const Point& tp, const Point& middle);
+        void arcto(const Point& tp, const Point& middle) { data.push_back(new Seg_arcto(middle, tp)); }
         //void arcto(Point const& center, double sweepRad);
         void cubicto(const Point& ctrl1, const Point& ctrl2,const Point& end) { data.push_back(new Seg_cubicto(ctrl1, ctrl2, end)); }
         // 二阶自动升三阶

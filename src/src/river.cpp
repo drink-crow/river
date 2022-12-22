@@ -48,37 +48,6 @@ namespace river
         return SegType::CubicTo;
     }
 
-    Point get_point(double x, double y) {
-        return Point(x, y);
-    }
-
-    void hello(Point const& p) {
-        std::cout << p.x << p.y << std::endl;
-    }
-
-    using cubic_pack = boost::fusion::vector<char, Point, Point, Point>;
-
-    struct writer
-    {
-        void moveto(Point const& i) const
-        {
-            _path->moveto(i);
-        }
-
-        void lineto(const Point& tp) const
-        {
-            _path->lineto(tp);
-        }
-
-
-        void cubicto(cubic_pack const& tri) const
-        {
-            _path->cubicto(boost::fusion::at_c<1>(tri), boost::fusion::at_c<2>(tri), boost::fusion::at_c<3>(tri));
-        }
-
-        Path* _path;
-    };
-
     Path make_path(const char* s)
     {
         using namespace boost::spirit;
@@ -88,6 +57,25 @@ namespace river
         using it = std::string::iterator;
 
         namespace ascii = boost::spirit::ascii;
+        namespace fusion = boost::fusion;
+
+        using cubic_pack = boost::fusion::vector<char, Point, Point, Point>;
+        using arc_pack = boost::fusion::vector<char, Point, Point>;
+
+        struct writer
+        {
+
+            void moveto(Point const& i) const { _path->moveto(i); }
+            void lineto(const Point& tp) const { _path->lineto(tp); }
+            void arcto(arc_pack const& pack) const {
+                _path->arcto(fusion::at_c<1>(pack), fusion::at_c<2>(pack));
+            }
+            void cubicto(cubic_pack const& pack) const {
+                _path->cubicto(fusion::at_c<1>(pack), fusion::at_c<2>(pack), fusion::at_c<3>(pack));
+            }
+
+            Path* _path;
+        };
 
         Path res;
         writer w;
@@ -95,11 +83,13 @@ namespace river
 
         qi::rule<it, Point(), ascii::space_type> point_p;
         qi::rule<it, cubic_pack(), ascii::space_type> cubic_p;
+        qi::rule<it, arc_pack(), ascii::space_type> arc_p;
         point_p %= double_ >> double_;
         auto move_p = char_('m') >> point_p[boost::bind(&writer::moveto, &w, _1)];
         auto line_p = char_('l') >> point_p[boost::bind(&writer::lineto, &w, _1)];
+        arc_p %= (char_('a') >> point_p >> point_p)[boost::bind(&writer::arcto, &w, _1)];
         cubic_p %= (char_('c') >> point_p >> point_p >> point_p)[boost::bind(&writer::cubicto, &w, _1)];
-        auto path = *(move_p | line_p | cubic_p);
+        auto path = *(move_p | line_p | arc_p | cubic_p);
 
         std::string str(s);
         Point p;
