@@ -51,6 +51,13 @@ namespace vatti
     {
         vertex* vert;
         Point break_point;
+        double t;
+
+        bool operator==(const break_info& r) const {
+            return vert == r.vert
+                && break_point == r.break_point
+                && t == r.t;
+        }
     };
 
     class clipper
@@ -63,6 +70,7 @@ namespace vatti
         void intersect(vertex* const & r, vertex* const& l);
     private:
         vertex* new_vertex();
+        void set_segment(vertex* prev, vertex* mem, Seg* move_seg);
         void add_local_min(vertex* vert, PathType, bool is_open);
 
         // 使用 object_pool 提高内存申请的效率和放置内存泄露

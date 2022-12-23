@@ -3,6 +3,8 @@
 #include "scan_line.h"
 #include "util.h"
 
+#include <algorithm>
+
 namespace scan_line
 {
     using namespace vatti;
@@ -54,15 +56,6 @@ namespace vatti
         {
             if (!is_vaild(path)) continue;
 
-            constexpr auto add_segment = [](vertex* prev, vertex* mem, Seg* move_seg) {
-                prev->next = mem;
-                prev->next_seg = move_seg;
-
-                mem->prev = prev;
-                mem->pt = move_seg->get_target();
-                mem->flags = vertex_flags::none;
-            };
-
             vertex *prev = nullptr, *cur = nullptr;
             vertex* first = new_vertex();
             paths_start.push_back(first);
@@ -94,19 +87,19 @@ namespace vatti
                     switch (break_cnt)
                     {
                     case 2:
-                        add_segment(prev, cur, new Seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
+                        set_segment(prev, cur, new Seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
                         prev = cur; cur = new_vertex();
-                        add_segment(prev, cur, new Seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
+                        set_segment(prev, cur, new Seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
                         prev = cur; cur = new_vertex();
-                        add_segment(prev, cur, new Seg_cubicto(tmp[2].p1, tmp[2].p2, tmp[2].p3));
+                        set_segment(prev, cur, new Seg_cubicto(tmp[2].p1, tmp[2].p2, tmp[2].p3));
                         break;
                     case 1:
-                        add_segment(prev, cur, new Seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
+                        set_segment(prev, cur, new Seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
                         prev = cur; cur = new_vertex();
-                        add_segment(prev, cur, new Seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
+                        set_segment(prev, cur, new Seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
                         break;
                     default:
-                        add_segment(prev, cur, seg->deep_copy());
+                        set_segment(prev, cur, seg->deep_copy());
                         break;
                     }
                 }
@@ -114,14 +107,14 @@ namespace vatti
                 default:
                     // ToDO: 别的曲线类型
                     // ToDO: 删去重复的直线
-                    add_segment(prev, cur, seg->deep_copy());
+                    set_segment(prev, cur, seg->deep_copy());
                     break;
                 }
 
                 prev = cur;
             }
             // ToDO: 将最后一点合并至起点，这里还应该判断时候闭合了，没有的话给它拉一条直线自动闭合
-            add_segment(cur->prev, first, cur->prev->next_seg);
+            set_segment(cur->prev, first, cur->prev->next_seg);
 
 #if 0
             {
@@ -228,9 +221,110 @@ namespace vatti
                 cur = cur->next;
             } while (cur != start);
         }
-
         scaner.process(this);
 
+        // 处理得到的打断信息
+
+        std::sort(break_info_list.begin(), break_info_list.end(), 
+            [](break_info const& l, break_info const& r) {return l.vert < r.vert; });
+        break_info_list.erase(std::unique(break_info_list.begin(), break_info_list.end()), break_info_list.end());
+
+        auto start = break_info_list.begin();
+        auto end = start;
+
+        while (start != break_info_list.end()) {
+            auto start_v = start->vert;
+            auto cur_v = start_v;
+            auto end_v = cur_v->next;
+
+            while (end->vert == cur_v && end != break_info_list.end()) {
+                ++end;
+            }
+
+            auto start_p = cur_v->pt;
+            auto start_seg = cur_v->next_seg;
+            auto end_p = cur_v->next->pt;
+            switch (start_seg->get_type())
+            {
+            case SegType::LineTo:
+            {
+                std::vector<break_info> cur_break_list(start, end);
+                auto dx = end_p.x >= start_p.x;
+                auto dy = end_p.y >= start_p.y;
+                std::sort(cur_break_list.begin(), cur_break_list.end(),
+                    [dx, dy](break_info const& li, break_info const& ri) {
+                        auto l = li.break_point;
+                        auto r = ri.break_point;
+
+                        if (dx && r.x < l.x) return true;
+                        if ((!dx) && r.x > l.x) return true;
+                        if (dy && r.y < l.y) return true;
+                        if ((!dy) && r.y > l.y) return true;
+
+                        return false;
+                    });
+
+                ((Seg_lineto*)start_seg)->target = cur_break_list[0].break_point;
+                auto next = new_vertex();
+                set_segment(start_v, next, start_seg);
+                cur_v = next;
+                for (size_t i = 1; i < cur_break_list.size(); ++i) {
+                    set_segment(cur_v, new_vertex(), new Seg_lineto(cur_break_list[i].break_point));
+                    cur_v = cur_v->next;
+                }
+                auto end_flags = end_v->flags;
+                set_segment(cur_v, end_v, new Seg_lineto(end_v->pt));
+                end_v->flags = end_flags;
+                break;
+            }
+            case SegType::CubicTo:
+            {
+                std::vector<break_info> cur_break_list(start, end);
+                std::sort(cur_break_list.begin(), cur_break_list.end(),
+                    [](break_info const& li, break_info const& ri) {
+                        return li.t < ri.t;
+                    });
+
+
+                std::vector<bezier_cubic> split_c(cur_break_list.size() + 1);
+                std::vector<double> split_t;
+                for (auto& info : cur_break_list) split_t.push_back(info.t);
+                auto first_cubicto = (Seg_cubicto*)start_seg;
+                first_cubicto->get_cubic(start_p).split(split_t.data(), split_c.data(), split_t.size());
+
+                first_cubicto->ctrl_Point1 = split_c[0].p1;
+                first_cubicto->ctrl_Point2 = split_c[0].p2;
+                first_cubicto->target = split_c[0].p3;
+                auto next = new_vertex();
+                set_segment(start_v, next, first_cubicto);
+                cur_v = next;
+                for (size_t i = 1; i < cur_break_list.size(); ++i) {
+                    set_segment(cur_v, new_vertex(), new Seg_cubicto(
+                        split_c[i].p1, split_c[i].p2, cur_break_list[i].break_point));
+                    cur_v = cur_v->next;
+                }
+                auto end_flags = end_v->flags;
+                set_segment(cur_v, end_v, new Seg_cubicto(split_c.back().p1, split_c.back().p2, end_v->pt));
+                end_v->flags = end_flags;
+
+                break;
+            }
+            default:
+                break;
+            }
+
+        }
+
+    }
+
+    void clipper::set_segment(vertex* prev, vertex* mem, Seg* move_seg)
+    {
+        prev->next = mem;
+        prev->next_seg = move_seg;
+
+        mem->prev = prev;
+        mem->pt = move_seg->get_target();
+        mem->flags = vertex_flags::none;
     }
 
     void clipper::intersect(vertex* const& l, vertex* const& r)
@@ -251,14 +345,14 @@ namespace vatti
             auto res = rmath::intersect(l->pt, lseg->get_target(), r->pt, rseg->get_target());
             if (res.count == 1) {
                 auto& data = res.data[0];
-                break_info_list.push_back({ l,data.p });
-                break_info_list.push_back({ r,data.p });
+                break_info_list.push_back({ l,data.p,data.t0 });
+                break_info_list.push_back({ r,data.p,data.t1 });
             }
             else if (res.count == 2) {
                 for (int i = 0; i < res.count; ++i) {
                     auto& data = res.data[i];
-                    if (0 < data.t0 && data.t0 < 1) break_info_list.push_back({ l,data.p });
-                    if (0 < data.t1 && data.t1 < 1) break_info_list.push_back({ r,data.p });
+                    if (0 < data.t0 && data.t0 < 1) break_info_list.push_back({ l,data.p,data.t0 });
+                    if (0 < data.t1 && data.t1 < 1) break_info_list.push_back({ r,data.p,data.t1 });
                 }
             }
             break;
@@ -274,7 +368,11 @@ namespace vatti
             rmath::bezier_cubic _curve{ cubic->pt, _cubic_to->ctrl_Point1,_cubic_to->ctrl_Point2,_cubic_to->target };
 
             auto res = rmath::intersect(_line, _curve);
-
+            for (int i = 0; i < res.count; ++i) {
+                auto& data = res.data[i];
+                if (0 < data.t0 && data.t0 < 1) break_info_list.push_back({ line,data.p,data.t0 });
+                if (0 < data.t1 && data.t1 < 1) break_info_list.push_back({ cubic,data.p,data.t1 });
+            }
             break;
         }
         default:
