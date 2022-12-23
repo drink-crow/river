@@ -39,6 +39,28 @@ namespace vatti
         return p.data.size() > 1;
     }
 
+    /***************************************************
+    *  Dx:                    0(90deg)                 *
+    *                         |                        *
+    *      +inf (180deg) <--- o ---> -inf (0deg)       *
+    ***************************************************/
+    inline double get_direct(const Point& pt1, const Point& pt2)
+    {
+        double dy = double(pt2.y - pt1.y);
+        if (dy != 0)
+            return double(pt2.x - pt1.x) / dy;
+        else if (pt2.x > pt1.x)
+            return -std::numeric_limits<double>::max();
+        else
+            return std::numeric_limits<double>::max();
+    }
+
+    // 虽然包含曲线内容，但是由于已经做了 Y 轴上单调的拆分，所有线段的方法仍然行得通
+    inline void set_direct(edge* e)
+    {
+        e->dx = get_direct(e->bot, e->top);
+    }
+
     void clipper::add_path(const Paths& paths, PathType polytype, bool is_open)
     {
         size_t total_vertex_count = 0;
@@ -199,6 +221,34 @@ namespace vatti
 #endif
         }
     }
+
+    void clipper::process()
+    {
+        process_intersect();
+
+        // build init scan line list
+        std::sort(local_minima_list.begin(), local_minima_list.end(),
+            [](local_minima* const& l, local_minima* const& r) {
+                if (l->vert->pt.y != r->vert->pt.y) { return l->vert->pt.y < r->vert->pt.y; }
+                else { return l->vert->pt.x < r->vert->pt.x; }
+            });
+
+        for (auto it = local_minima_list.rbegin(); it != local_minima_list.rend(); ++it) {
+            scanline_list.push((*it)->vert->pt.y);
+        }
+
+        cur_locmin_it = local_minima_list.begin();
+
+
+        num y;
+        if (!pop_scanline(y)) return;
+
+        while (true)
+        {
+            insert_local_minima_to_ael(y);
+        }
+    }
+
     vertex* clipper::new_vertex()
     {
         auto v =  vertex_pool.malloc();
@@ -210,8 +260,10 @@ namespace vatti
         return v;
     }
 
-    void clipper::process()
+    void clipper::process_intersect()
     {
+        break_info_list.clear();
+
         // 先求交点
         scan_line::scan_line<vertex*> scaner;
         for (auto& start : paths_start) {
@@ -354,6 +406,58 @@ namespace vatti
         mem->prev = prev;
         mem->pt = move_seg->get_target();
         mem->flags = vertex_flags::none;
+    }
+
+    bool clipper::pop_scanline(num& y)
+    {
+        if (scanline_list.empty()) return false;
+        y = scanline_list.top();
+        scanline_list.pop();
+        while (!scanline_list.empty() && y == scanline_list.top())
+            scanline_list.pop();  // Pop duplicates.
+        return true;
+    }
+
+    void clipper::insert_local_minima_to_ael(num y)
+    {
+        local_minima* lmin = nullptr;
+        edge *left_bound, *right_bound;
+
+        while(pop_local_minima(y, &lmin))
+        {
+            // 先设置左右，一会再调换
+            left_bound = new edge();
+            left_bound->bot = lmin->vert->pt;
+            left_bound->curr_x = left_bound->bot.x;
+            left_bound->wind_cnt = 0,
+                left_bound->wind_cnt2 = 0,
+                left_bound->wind_dx = -1,
+                left_bound->vertex_top = lmin->vert->prev;  // ie descending
+            left_bound->top = left_bound->vertex_top->pt;
+            left_bound->out_poly = nullptr;
+            left_bound->local_min = lmin;
+            set_direct(left_bound);
+
+            right_bound = new edge();
+            right_bound->bot = lmin->vert->pt;
+            right_bound->curr_x = right_bound->bot.x;
+            right_bound->wind_cnt = 0,
+                right_bound->wind_cnt2 = 0,
+                right_bound->wind_dx = 1,
+                right_bound->vertex_top = lmin->vert->next;  // ie ascending
+            right_bound->top = right_bound->vertex_top->pt;
+            right_bound->out_poly = nullptr;
+            right_bound->local_min = lmin;
+            set_direct(right_bound);
+        }
+    }
+
+    bool clipper::pop_local_minima(num y, local_minima** out)
+    {
+        if (cur_locmin_it == local_minima_list.end() || (*cur_locmin_it)->vert->pt.y != y) return false;
+        *out = (*cur_locmin_it);
+        ++cur_locmin_it;
+        return true;
     }
 
     void clipper::intersect(vertex* const& l, vertex* const& r)
