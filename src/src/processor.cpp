@@ -47,7 +47,7 @@ void processor::add_path(const Paths& in, PathType pt)
 
 void processor::process()
 {
-
+    pptr->clipper.process();
 }
 
 #endif

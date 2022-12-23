@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 
     auto p = river::make_path("m 0 0 l 100 100 c 0 70 0 250 100 200 l 0 0");
     river.add_path(p, PathType::Subject);
-
+    river.process();
 #if 0
     {
         using namespace Clipper2Lib;

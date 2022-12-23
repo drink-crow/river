@@ -237,7 +237,7 @@ namespace vatti
             auto cur_v = start_v;
             auto end_v = cur_v->next;
 
-            while (end->vert == cur_v && end != break_info_list.end()) {
+            while (end != break_info_list.end() && end->vert == cur_v) {
                 ++end;
             }
 
@@ -313,8 +313,37 @@ namespace vatti
                 break;
             }
 
+            start = end;
         }
 
+#if 0
+        // 图形测试打断是否正确处理
+        for(auto &first : paths_start)
+        {
+            auto cur_v = first;
+            QPen redpen(Qt::red);
+            redpen.setWidth(3);
+            do {
+                switch (cur_v->next_seg->get_type())
+                {
+                case SegType::LineTo:
+                    debug_util::show_line(QLineF(toqt(cur_v->pt), toqt(cur_v->next_seg->get_target())), redpen);
+                    break;
+                case SegType::CubicTo:
+                {
+                    auto cubic = (const Seg_cubicto*)(cur_v->next_seg);
+                    debug_util::show_cubic(toqt(cur_v->pt), toqt(cubic->ctrl_Point1), toqt(cubic->ctrl_Point2), toqt(cur_v->next->pt), redpen);
+                    break;
+                }
+                default:
+                    break;
+                }
+
+
+                cur_v = cur_v->next;
+            } while (cur_v != first);
+        }
+#endif
     }
 
     void clipper::set_segment(vertex* prev, vertex* mem, Seg* move_seg)
