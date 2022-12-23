@@ -42,6 +42,165 @@ namespace rmath
         return sc <= 1;
     }
 
+    bool point_between_two_point(const vec2& p, const vec2& p0, const vec2& p1)
+    {
+        auto r = rect::from({ p0,p1 });
+
+        return ((r.min.x <= p.x) && (p.x <= r.max.x))
+            || ((r.min.y <= p.y) && (p.y <= r.max.y));
+    }
+
+    line_intersect_result intersect(const vec2& p0, const vec2& p1, const vec2& p2, const vec2& p3)
+    {
+        line_intersect_result res;
+        res.count = 0;
+
+        const vec2 a = p1 - p0;
+        const vec2 b = p2 - p3;
+        const vec2 c = p0 - p2;
+
+        const double denominator = a.y * b.x - a.x * b.y;
+        if (denominator == 0 || !std::isfinite(denominator))
+        {
+            // 此时平行
+            if (dist2_point_line(p0, p2, p3) == 0)
+            {
+                // 此时共线
+                if (p0 != p2 && p0 != p3 && point_between_two_point(p0, p2, p3)) {
+                    // p0 在 r 内
+                    auto& data = res.data[res.count];
+                    data.p = p0;
+                    data.t0 = 0;
+                    if(b.y == 0) data.t1 = (p0 - p2).x / -b.x;
+                    else data.t1 = (p0 - p2).y / -b.y;
+                    res.count++;
+                }
+                if (p1 != p2 && p1 != p3 && point_between_two_point(p1, p2, p3)) {
+                    // p1 在 r 内
+                    auto& data = res.data[res.count];
+                    data.p = p1;
+                    data.t0 = 1;
+                    if (b.y == 0) data.t1 = (p1 - p2).x / -b.x;
+                    else data.t1 = (p1 - p2).y / -b.y;
+                    res.count++;
+                }
+
+                if (p2 != p0 && p2 != p1 && point_between_two_point(p2, p0, p1)) {
+                    // p2 在 l 内
+                    auto& data = res.data[res.count];
+                    data.p = p2;
+                    data.t1 = 0;
+                    if (a.y == 0) data.t0 = (p2 - p0).x / a.x;
+                    else data.t0 = (p2 - p0).y / a.y;
+                    res.count++;
+                }
+                if (p3 != p0 && p3 != p1 && point_between_two_point(p3, p0, p1)) {
+                    // p3 在 l 内
+                    auto& data = res.data[res.count];
+                    data.p = p3;
+                    data.t1 = 1;
+                    if (a.y == 0) data.t0 = (p3 - p0).x / a.x;
+                    else data.t0 = (p3 - p0).y / a.y;
+                    res.count++;
+                }
+            }
+
+            return res;
+        }
+
+        const double reciprocal = 1 / denominator;
+        const double na = (b.y * c.x - b.x * c.y) * reciprocal;
+        const double nb = (a.x * c.y - a.y * c.x) * reciprocal;
+
+        const bool in_l = 0 < na && na < 1;
+        const bool in_r = 0 < nb && nb < 1;
+
+        if (in_l && in_r) {
+            res.count = 1;
+            res.data[0].p = (p0 + a * na);
+            res.data[0].t0 = na;
+            res.data[0].t1 = nb;
+        }
+
+        return res;
+    }
+
+    line_cubic_intersect_result intersect(const line& segment, const bezier_cubic& curve)
+    {
+        line_cubic_intersect_result res;
+
+        auto& p0 = curve.p0;
+        auto& p1 = curve.p1;
+        auto& p2 = curve.p2;
+        auto& p3 = curve.p3;
+
+        /*
+        有直线 Ax + By + C = 0 和 bezier曲线 P = f(t), 则有
+        Afx(t) + Bfy(t) + C = 0
+        为一元三次方程组，解方程即可
+        */
+        const vec2 t3 = p3 - 3 * p2 + 3 * p1 - p0;
+        const vec2 t2 = 3 * p2 - 6 * p1 + 3 * p0;
+        const vec2 t1 = 3 * p1 - 3 * p0;
+        const vec2 t0 = p0;
+
+        double A, B, C;
+        segment.general_from(&A, &B, &C);
+
+        const double a3 = A * t3.x + B * t3.y;
+        const double a2 = A * t2.x + B * t2.y;
+        const double a1 = A * t1.x + B * t1.y;
+        const double a0 = A * t0.x + B * t0.y + C;
+
+        auto l = segment.p1 - segment.p0;
+        auto cubic_res = resolv_cubic_equa(a3, a2, a1, a0);
+        for (auto i = 0; i < cubic_res.count; ++i) {
+            auto t = cubic_res.data[i];
+            if( 0 <= t && t <= 1) {
+                // ToDo 由于计算精度的问题，这里应该很难算出同一个点，特别实在交点靠近任意一方的端点时
+                auto p = curve.point_at(t);
+                if (point_between_two_point(p, segment.p0, segment.p1)) {
+                    auto& data = res.data[res.count];
+                    data.p = p;
+                    if (l.y == 0) { data.t0 = (p - segment.p0).x / l.x; }
+                    else { data.t0 = (p - segment.p0).y / l.y; }
+                    data.t1 = t;
+                    ++res.count;
+                }
+            }
+        }
+
+        return res;
+    }
+
+    void line::general_from(double* A, double* B, double* C) const
+    {
+        if (p0 == p1) {
+            *A = 0;
+            *B = 1;
+            *C = -p0.y;
+            return;
+        }
+
+        if (p0.x == p1.x) {
+            *A = 1;
+            *B = 0;
+            *C = -p0.x;
+            return;
+        }
+
+        if (p0.y == p1.y) {
+            *A = 0;
+            *B = 1;
+            *C = -p0.y;
+            return;
+        }
+
+        *A = p1.y - p0.y;
+        *B = p0.x - p1.x;
+        *C = (p1.x * p0.y) - (p0.x * p1.y);
+    }
+
     int bezier_cubic::split_y(double* t1, double* t2) const
     {
         //p = A (1-t)^3 +3 B t (1-t)^2 + 3 C t^2 (1-t) + D t^3
@@ -268,4 +427,184 @@ namespace rmath
         out1->p0 = p0; out1->p1 = p01; out1->p2 = p01_12; out1->p3 = p01_12__12_23;
         out2->p0 = p01_12__12_23; out2->p1 = p12_23; out2->p2 = p23; out2->p3 = p3;
     }
+
+    quad_equa_result resolv_quad_equa(double a, double b, double c)
+    {
+        quad_equa_result res;
+        if (is_zero(a))
+        {
+            //一元方程
+            if (is_zero(b))
+                return res;
+
+            res.count = 1;
+            res.data[0] = -c / b;
+            return res;
+        }
+
+        double k = b * b - 4 * a * c;
+        if (is_zero(k))
+        {
+            res.count = 1;
+            res.data[0] = -b / (2 * a);
+        }
+        else if (k > 0)
+        {
+            double sqrtK = std::sqrt(k);
+            res.count = 2;
+            res.data[0] = (-b + sqrtK) / (2 * a);
+            res.data[1] = (-b - sqrtK) / (2 * a);
+        }
+
+        return res;
+    }
+
+    cubic_equa_result resolv_cubic_equa(double a3, double a2, double a1, double a0)
+    {
+        cubic_equa_result res;
+
+        // ToDo 这里还需要判断a3与a2的指数是否相差过大
+        if (is_zero(a3))
+        {
+            //二次方程
+            auto quad_res = resolv_quad_equa(a2, a1, a0);
+            res.count = quad_res.count;
+            for (int i = 0; i < quad_res.count; ++i) {
+                res.data[i] = quad_res.data[i];
+            }
+            return res;
+        }
+
+        //有 a3·x^3 + a2·x^2 + a1·x + a0 = 0
+
+        //设 a = a2 / a3 和 b = a1 / a3 和 c = a0 / a3;
+        //有 x^3 + a·x^2 + b·x + c = 0
+        double a, b, c;
+        a = a2 / a3;
+        b = a1 / a3;
+        c = a0 / a3;
+
+        //设 x = y - a/3 有
+        //      (y - a/3)^3 + a·(y - a/3)^2 + b·(y - a/3) + c = 0
+        //化简得
+        //      y^3 + (b - a·a/3)y + (2·a^3/27 - a·b/3 +c) = 0
+        //设 p = b - aa/3 和 q = 2a^3/27 - ab/3 + c，得
+        //      y^3 + p·y + q = 0
+        double aPow2 = a * a;
+        double p = b - aPow2 / 3;
+        double q = 2 * aPow2 * a / 27 - a * b / 3 + c;
+
+        //令 y = v + w，得
+        //      (v + w)^3 + p·(v + w) + q = 0
+        //化简，有
+        //      (3·v·w + p)(v + w) + (v^3 + w^3 + q) = 0
+
+        //选择 3·v·w + p = 0 作为附加条件
+        //有
+        //      v^3 + w^3 = -q
+        //      v·w = -p/3    ......(1)
+        //因此有
+        //      v^3 + w^3 = -q
+        //      v^3·w^3 = -(p^3)/(3^3)    ......(2)
+        //(1)的解是(2)的解，但是(2)的解不一定是(1)的解，因此选择满足方程的的解:
+        //      v·w = -p/3
+        //根据韦达定理，(2)的解是下述二次方程的根
+        //韦达定理中一般二次方程中有x1 + x2 = -b/a, x1·x2=c/a, 设v^3, w^3分别为韦达定理中的x1, x2，可得以下方程
+        //      m^2 + q·m - (p/3)^3 = 0
+        //该二次方程的解为
+        //      m1,2 = -q/2 ± sqrt( (q/2)^2 + (p/3)^3 )
+        //因此，有
+        //      v = cbrt( -q/2 + sqrt( (q/2)^2 + (p/3)^3 ) )
+        //      w = cbrt( -q/2 - sqrt( (q/2)^2 + (p/3)^3 ) )
+        //所以对于y^3 + p·y + q = 0的解可以写成如下形式
+        //      y = v + w = cbrt( -q/2 + sqrt( (q/2)^2 + (p/3)^3 ) ) + cbrt( -q/2 - sqrt( (q/2)^2 + (p/3)^3 ) )
+
+        //对于三次方程y^3 + p·y + q = 0，记(q/2)^2 + (p/3)^3为判别式，以下记判别式为k
+        //如果k > 0, 有一个实数解和两个虚数解
+        //如果k = 0, 有三个实数解，但至少有两个解是相同的
+        //如果k < 0, 有三个不同的实数解
+
+        //令
+        //      ϵ = -1/2 - sqrt(3)/2i  (复数)
+        //作为1的第三个根，于是有
+        //      ϵ^2 = -1/2 + sqrt(3)/2i
+        //      ϵ^3 = 1
+        //令
+        //      v1 = cbrt( -q/2 + sqrt( (q/2)^2 + (p/3)^3 ) )
+        //作为任何值的第三个根和
+        //      w1 = -p/(3·v1)
+        //因此三次方程y^3 + p·y + q = 0的解可以写成以下形式
+        //      y1 = v1 + w1
+        //      y2 = v1·ϵ + w1·ϵ^2
+        //      y3 = v1·ϵ^2 + w1·ϵ
+
+
+        double k = std::pow(q / 2, 2) + std::pow(p / 3, 3);
+        if (is_zero(k))
+        {
+            //此时v1, w1均为实数
+            //观察有ϵ和ϵ^2为共轭复数
+            //此时有两个实数解，已有一个实数解y1 = v1 + w1
+            //剩下的解为
+            //      y2 = v1·ϵ + w1·ϵ^2
+            //      y3 = v1·ϵ^2 + w1·ϵ
+            //在虚数部分有定有
+            //      0 = v1 - w1
+            //      v1 = w1
+            //则解为
+            //      y1 = v1 + w1
+            //      y2 = -1/2·(v1 + w1) = -v1
+            //且v1 = w1
+
+            double v1 = std::cbrt(-q / 2);
+            if (is_zero(v1)) {
+                res.count = 1;
+                res.data[0] = 0. - a / 3;
+            }
+            else
+            {
+                res.count = 2;
+                res.data[0] = v1 * 2 - a / 3;
+                res.data[1] = -v1 - a / 3;
+            }
+        }
+        else if (k > 0.)
+        {
+            //此时v1, w1均为实数
+            //只有一个实数解则只能是y1 = v1 + w1
+            double sqrtk = std::sqrt(k);
+            double v1 = std::cbrt(-q / 2 + sqrtk);
+            double w1 = -p / (3 * v1);
+
+            res.count = 1;
+            res.data[0] = v1 + w1 - a / 3;
+        }
+        else
+        {
+            //当k<0时，有三个实数解
+            //根据对虚数的开方公式可得
+            //      y1 = z1 + w3 = 2·cbrt(r)·cos(φ/3)
+            //      y2 = z2 + w2 = 2·cbrt(r)·cos((φ + 2π)/3)
+            //      y3 = z3 + w1 = 2·cbrt(r)·cos((φ + 4π)/3)
+            //其中
+            //      z = -q/2 + sqrt(k)
+            //      φ = arctan[tan(φ)], 有tan(φ) = -2·sqrt(-k)/q, 如果tan(φ)<0, 结果要改变正负符号
+            double sqrt_minus_k = std::sqrt(-k);
+            double tanPhi = -2 * sqrt_minus_k / q;
+            double phi = std::atan(tanPhi);
+            double minus = (tanPhi < 0) ? -1 : 1;
+
+            double r = std::sqrt(q * q / 4 - k);
+            double AAA = 2 * std::cbrt(r);
+            constexpr double pi = 3.1415926535;
+
+            res.count = 3;
+            res.data[0] = minus * AAA * std::cos(phi / 3) - a / 3;
+            res.data[1] = minus * AAA * std::cos((phi + 2 * pi) / 3) - a / 3;
+            res.data[2] = minus * AAA * std::cos((phi + 4 * pi) / 3) - a / 3;
+        }
+
+        return res;
+    }
+
 }

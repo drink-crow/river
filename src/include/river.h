@@ -8,10 +8,10 @@ namespace river {
 
 enum class SegType : int
 {
-    MoveTo,
-    LineTo,
-    ArcTo,
-    CubicTo
+    MoveTo = 0,
+    LineTo = 1,
+    ArcTo  = 2,
+    CubicTo= 3
 };
 
 enum class PathType

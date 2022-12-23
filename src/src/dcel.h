@@ -140,8 +140,6 @@ namespace dcel {
         half_edge* start = nullptr;
     };
 
-    bool point_between_two_point(const vec2& p, const vec2& p0, const vec2& p1);
-
     void intersect(line_half_edge* l, line_half_edge* r);
 
     class dcel

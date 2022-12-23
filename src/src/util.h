@@ -36,3 +36,8 @@ void draw_path(const river::Path& show, const QPen& pen = QPen(), const QPointF&
 void draw_path(const river::Paths& show, const QPen& pen = QPen(), const QPointF& offset = QPointF(0, 0));
 
 #endif
+
+inline constexpr uint32_t flags(river::SegType t) {
+    return 1 << (uint32_t)t;
+}
+

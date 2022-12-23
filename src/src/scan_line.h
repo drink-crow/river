@@ -108,50 +108,22 @@ namespace boost
 
 namespace scan_line
 {
+    // ToDo 去除需要boost.geometry.traits的内容，可以直接获取数据在组织，这部分内容可以内置起来
+    
     template<typename T> struct all_function {
-        typedef T seg;
-    };
-
-    namespace bg = boost::geometry;
-
-    template<>
-    struct all_function<dcel::half_edge*>
-    {
-        typedef ::rmath::rect box;
-        typedef double ct;
-        typedef dcel::half_edge* key;
-
-        static box get_rect(const key& in)
-        {
-            return in->get_boundary();
-        }
-        
-        // 端点重合不用处理
-        static void intersect(const key& r, const key& l)
-        {
-            constexpr int sort_value[] = { 0,1,10,100 };
-            int sort = sort_value[(int)r->get_seg_type()] + sort_value[(int)l->get_seg_type()];
-
-            // 这种分类发挺危险的，一旦 SegType 有所改变，这里很容易失效
-            switch (sort)
-            {
-            case 2:
-                dcel::intersect((dcel::line_half_edge*)r, (dcel::line_half_edge*)l);
-                break;
-            case 11:
-                break;
-            case 20:
-                break;
-            case 101:
-                break;
-            case 110:
-                break;
-            case 200:
-                break;
-            default:
-                break;
-            }
-        }
+        // you must do below typedef and func
+        // typedef myAABBtype box;
+        // typedef myNumType ct;
+        // typedef myKeyType key;
+        // 
+        // static box get_rect(const key& in)
+        // {
+        //     return AABB_of(in);
+        // }
+        // static void intersect(const key& r, const key& l, void* user)
+        // {
+        //     // the code precess intersect of key r vers key l
+        // }
     };
 
     template<class key>
@@ -194,7 +166,7 @@ namespace scan_line
         };
 
         void add_segment(const key& in);
-        void process();
+        void process(void* user);
 
 
     private:
@@ -208,6 +180,8 @@ namespace scan_line
     template<class key>
     void scan_line<key>::add_segment(const key& in)
     {
+        namespace bg = boost::geometry;
+
         auto new_seg = new seg{ in, funcs::get_rect(in) };
 
         segments.push_back(new_seg);
@@ -219,7 +193,7 @@ namespace scan_line
     }
 
     template<class key>
-    void scan_line<key>::process()
+    void scan_line<key>::process(void* user)
     {
         std::set<seg*> current;
 
@@ -230,7 +204,7 @@ namespace scan_line
                 // 每一新添加的对象，和列表中的计算一次交点
                 for (auto c : current) {
                     if (intersect(c->box, in->box)) {
-                        funcs::intersect(c->key, in->key);
+                        funcs::intersect(c->key, in->key, user);
                     }
                 }
 
@@ -246,6 +220,8 @@ namespace scan_line
     template<class key>
     bool scan_line<key>::intersect(const box& r, const box& l) const
     {
+        namespace bg = boost::geometry;
+
         return bg::intersects(r, l);
     }
 

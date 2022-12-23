@@ -6,6 +6,7 @@
 namespace scan_line
 {
     using namespace vatti;
+    using namespace rmath;
 
     template<>
     struct all_function<vertex*>
@@ -19,9 +20,9 @@ namespace scan_line
             return in->next_seg->get_boundary(in->pt);
         }
 
-        static void intersect(const key& r, const key& l)
+        static void intersect(const key& r, const key& l, void* user)
         {
-
+            ((clipper*)(user))->intersect(r, l);
         }
     };
 }
@@ -77,7 +78,7 @@ namespace vatti
                 auto seg = *it;
                 cur = new_vertex();
                 
-                // 打断曲线使其 y 轴单调递增 
+                // 打断曲线使其 y 轴单调，且不自交 
                 // ToDO: 还要处理曲线等价与一条水平线的情况
                 switch (seg->get_type())
                 {
@@ -228,7 +229,57 @@ namespace vatti
             } while (cur != start);
         }
 
-        scaner.process();
+        scaner.process(this);
+
+    }
+
+    void clipper::intersect(vertex* const& l, vertex* const& r)
+    {
+
+        auto rseg = r->next_seg;
+        auto lseg = l->next_seg;
+
+        auto rt = r->next_seg->get_type();
+        auto lt = l->next_seg->get_type();
+
+        uint32_t t = flags(rt) & flags(lt);
+
+        switch (t)
+        {
+        case flags(SegType::LineTo):
+        {
+            auto res = rmath::intersect(l->pt, lseg->get_target(), r->pt, rseg->get_target());
+            if (res.count == 1) {
+                auto& data = res.data[0];
+                break_info_list.push_back({ l,data.p });
+                break_info_list.push_back({ r,data.p });
+            }
+            else if (res.count == 2) {
+                for (int i = 0; i < res.count; ++i) {
+                    auto& data = res.data[i];
+                    if (0 < data.t0 && data.t0 < 1) break_info_list.push_back({ l,data.p });
+                    if (0 < data.t1 && data.t1 < 1) break_info_list.push_back({ r,data.p });
+                }
+            }
+            break;
+        }
+        case flags(SegType::LineTo)& flags(SegType::CubicTo):
+        {
+            vertex* line, * cubic;
+            if (lt == SegType::LineTo) { line = l; cubic = r; }
+            else { line = r; cubic = l; }
+
+            rmath::line _line{ line->pt, line->next_seg->get_target() };
+            auto _cubic_to = (const Seg_cubicto*)(cubic->next_seg);
+            rmath::bezier_cubic _curve{ cubic->pt, _cubic_to->ctrl_Point1,_cubic_to->ctrl_Point2,_cubic_to->target };
+
+            auto res = rmath::intersect(_line, _curve);
+
+            break;
+        }
+        default:
+            break;
+        }
 
     }
 

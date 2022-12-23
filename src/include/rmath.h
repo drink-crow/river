@@ -85,6 +85,14 @@ namespace rmath
     // 计算点投影到（有限长）线段的点是否位于线段内
     bool point_project_in_segment(const vec2& p, const vec2& p0, const vec2& p1);
 
+    struct line
+    {
+        vec2 p0, p1;
+
+        // 将直线整理成一般形式 Ax + By + C = 0
+        void general_from(double* out_A, double* out_B, double* out_C) const;
+    };
+
     struct bezier_cubic
     {
         vec2 p0, p1, p2, p3;
@@ -96,4 +104,43 @@ namespace rmath
         void split(double* t, bezier_cubic* out, size_t size) const;
         void split(double t, bezier_cubic* out1, bezier_cubic* out2) const;
     };
+
+    struct quad_equa_result
+    {
+        int count = 0; // 最多2个实数解
+        double data[2];
+    };
+    quad_equa_result resolv_quad_equa(double a2, double a1, double a0);
+
+    struct cubic_equa_result
+    {
+        int count = 0; // 实数解数量，最多三个
+        double data[3];
+    };
+    // 解一般一元三次方程a3·x^3 + a2·x^2 + a1·x + a0 = 0的实数根
+    cubic_equa_result resolv_cubic_equa(double a3, double a2, double a1, double a0);
+
+    struct intersect_info
+    {
+        vec2 p{ 0 };
+        double t0 = 0;
+        double t1 = 0;
+    };
+    struct line_intersect_result {
+        int count = 0;  // 最多有2个交点(共线时)
+        intersect_info data[2];
+    };
+
+    // 数据中 t0 是 line{p0p1} 的，t1 是line{p2p3}的
+    [[nodiscard]] line_intersect_result intersect(const vec2& p0, const vec2& p1, const vec2& p2, const vec2& p3);
+
+    struct line_cubic_intersect_result {
+        int count = 0; // 最多有3个交点
+        intersect_info data[3];
+    };
+    // 仅计算线段和三次贝塞尔相交的情况，对于贝塞尔本身的自交不做计算
+    // 数据中 t0 是 segment 的，t1 是curve的
+    [[nodiscard]] line_cubic_intersect_result intersect(const line& segment, const bezier_cubic& curve);
+
+    
 }

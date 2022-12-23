@@ -47,6 +47,12 @@ namespace vatti
             pt(v), polytype(pt), is_open(open){}
     };
 
+    struct break_info
+    {
+        vertex* vert;
+        Point break_point;
+    };
+
     class clipper
     {
     public:
@@ -54,6 +60,7 @@ namespace vatti
 
         void process();
 
+        void intersect(vertex* const & r, vertex* const& l);
     private:
         vertex* new_vertex();
         void add_local_min(vertex* vert, PathType, bool is_open);
@@ -62,6 +69,8 @@ namespace vatti
         boost::object_pool<vertex> vertex_pool;
         std::vector<vertex*> paths_start;
         std::vector<local_minima*> local_minima_list;
+
+        std::vector<break_info> break_info_list;
     };
 }
 

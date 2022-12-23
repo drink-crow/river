@@ -21,6 +21,38 @@
 #include "scan_line.h"
 #include "util.h"
 
+namespace scan_line {
+    using namespace river;
+
+    template<>
+    struct all_function<dcel::half_edge*>
+    {
+        typedef ::rmath::rect box;
+        typedef double ct;
+        typedef dcel::half_edge* key;
+
+        static box get_rect(const key& in)
+        {
+            return in->get_boundary();
+        }
+
+        // 端点重合不用处理
+        static void intersect(const key& r, const key& l, void* user)
+        {
+            auto sort = flags(r->get_seg_type()) & flags(l->get_seg_type());
+
+            switch (sort)
+            {
+            case flags(SegType::LineTo):
+                dcel::intersect((dcel::line_half_edge*)r, (dcel::line_half_edge*)l);
+                break;
+            default:
+                break;
+            }
+        }
+    };
+}
+
 namespace dcel {
 
 #if RIVER_GRAPHICS_DEBUG
@@ -74,61 +106,16 @@ namespace dcel {
         const vec2& p2 = r->start->p;
         const vec2& p3 = r->end->p;
 
-        const vec2 a = p1 - p0;
-        const vec2 b = p2 - p3;
-        const vec2 c = p0 - p2;
-
-        const double denominator = a.y * b.x - a.x * b.y;
-        if (denominator == 0 || !std::isfinite(denominator))
-        {
-            // 此时平行
-            if (dist2_point_line(p0, p2, p3) == 0)
-            {
-                // 此时共线
-                if (p0 != p2 && p0 != p3 && point_between_two_point(p0, p2, p3)) {
-                    // p0 在 r 内
-                    r->add_break_point(p0);
-                }
-                if (p1 != p2 && p1 != p3 && point_between_two_point(p1, p2, p3)) {
-                    // p1 在 r 内
-                    r->add_break_point(p1);
-                }
-
-                if (p2 != p0 && p2 != p1 && point_between_two_point(p2, p0, p1)) {
-                    // p2 在 l 内
-                    l->add_break_point(p2);
-                }
-                if (p3 != p0 && p3 != p1 && point_between_two_point(p3, p0, p1)) {
-                    // p3 在 l 内
-                    l->add_break_point(p3);
-                }
-            }
-
-            return;
+        auto res = intersect(p0, p1, p2, p3);
+        if (res.count == 1) {
+            r->add_break_point(res.data[0].p);
+            l->add_break_point(res.data[0].p);
         }
-
-        const double reciprocal = 1 / denominator;
-        const double na = (b.y * c.x - b.x * c.y) * reciprocal;
-
-        bool in_l = false;
-        vec2 intersection;
-        if (0 < na && na < 1) {
-            // 交点位于 l 内
-            in_l = true;
-            intersection = (p0 + a * na);
-            l->add_break_point(intersection);
-        }
-
-        const double nb = (a.x * c.y - a.y * c.x) * reciprocal;
-        if (0 < nb && nb < 1) {
-            // 交点也位于 r 内
-
-            // 确保计算出来打断的点在数值上完全一致
-            if (in_l) {
-                r->add_break_point(intersection);
-            }
-            else {
-                r->add_break_point(p2 + (p3-p2) * nb);
+        else if (res.count == 2) {
+            for (int i = 0; i < res.count; ++i) {
+                auto& data = res.data[i];
+                if (0 < data.t0 && data.t0 < 1) l->add_break_point(data.p);
+                if (0 < data.t1 && data.t1 < 1) r->add_break_point(data.p);
             }
         }
     }
@@ -323,7 +310,7 @@ namespace dcel {
         for(auto e:edges){
             scan_line.add_segment(e);
         }
-        scan_line.process();
+        scan_line.process(nullptr);
 
         // 这里很重要，应为对 edges 插入删除会扰乱 set 的遍历
         std::vector<half_edge*> tmp_vector(edges.begin(), edges.end());
