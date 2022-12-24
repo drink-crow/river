@@ -19,6 +19,8 @@ enum class PathType
     Subject, Clip
 };
 
+enum class fill_rule { even_odd, non_zero, positive, negative };
+enum class clip_type { none, intersection, Union, difference, Xor };
 
 using Point = rmath::vec2;
 using rmath::rect;

@@ -10,7 +10,11 @@ namespace vatti
     typedef double num;
 
     enum class vertex_flags : uint32_t {
-        none = 0, open_start = 0x1, open_end = 0b1<<1, local_max = 0b1 << 2, local_min = 0b1 << 3
+        none = 0, 
+        open_start = 0b1 << 0,
+        open_end   = 0b1 << 1, 
+        local_max  = 0b1 << 2, 
+        local_min  = 0b1 << 3
     };
 
     constexpr enum vertex_flags operator &(enum vertex_flags a, enum vertex_flags b)
@@ -74,6 +78,7 @@ namespace vatti
         Point bot;
         Point top;
         num curr_x = 0;
+        // ToDo 单 double 不足以表示走向和斜率
         double dx = 0.;
         int wind_dx = 1; //1 or -1 depending on winding direction
         int wind_cnt = 0;
@@ -105,12 +110,18 @@ namespace vatti
         bool pop_scanline(num& y);
         void insert_local_minima_to_ael(num y);
         bool pop_local_minima(num y, local_minima**);
+        void insert_left_edge(edge* e);
+        bool is_valid_ael_order(const edge* resident, const edge* newcomer);
+        void set_windcount_closed(edge* e);
+        bool is_contributing_closed(edge* e);
 
+        clip_type cliptype_ = clip_type::intersection;
+        fill_rule fillrule_ = fill_rule::positive;
         // 使用 object_pool 提高内存申请的效率和放置内存泄露
         boost::object_pool<vertex> vertex_pool;
         std::vector<vertex*> paths_start;
         std::vector<local_minima*> local_minima_list;
-        dceltype(local_minima_list)::iterator cur_locmin_it;
+        std::vector<local_minima*>::iterator cur_locmin_it;
         // 不知道为啥 Clipper 要特意使用 priority_queue，先模仿下
         std::priority_queue<num> scanline_list;
         edge* ael_first = nullptr;
