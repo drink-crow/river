@@ -4,7 +4,6 @@
 #include "util.h"
 
 #include <algorithm>
-#include <cmath>
 
 namespace scan_line
 {
@@ -527,12 +526,49 @@ namespace vatti
             else if (left_bound->dx < right_bound->dx)
                 swap_edge(&left_bound, &right_bound);
 
+            // 开始处理 left_bound
             bool contributing;
             left_bound->is_left_bound = true;
             insert_left_edge(left_bound);
 
             set_windcount_closed(left_bound);
             contributing = is_contributing_closed(left_bound);
+
+            // 开始处理 right_bound
+            right_bound->is_left_bound = false;
+            right_bound->wind_cnt = left_bound->wind_cnt;
+            right_bound->wind_cnt2 = left_bound->wind_cnt2;
+            insert_right_edge(left_bound, right_bound);
+
+
+            if (contributing)
+            {
+                AddLocalMinPoly(*left_bound, *right_bound, left_bound->bot, true);
+                if (!IsHorizontal(*left_bound) && TestJoinWithPrev1(*left_bound))
+                {
+                    OutPt* op = AddOutPt(*left_bound->prev_in_ael, left_bound->bot);
+                    AddJoin(op, left_bound->outrec->pts);
+                }
+            }
+
+            while (right_bound->next_in_ael &&
+                IsValidAelOrder(*right_bound->next_in_ael, *right_bound))
+            {
+                IntersectEdges(*right_bound, *right_bound->next_in_ael, right_bound->bot);
+                SwapPositionsInAEL(*right_bound, *right_bound->next_in_ael);
+            }
+
+            if (!IsHorizontal(*right_bound) &&
+                TestJoinWithNext1(*right_bound))
+            {
+                OutPt* op = AddOutPt(*right_bound->next_in_ael, right_bound->bot);
+                AddJoin(right_bound->outrec->pts, op);
+            }
+
+            if (IsHorizontal(*right_bound))
+                PushHorz(*right_bound);
+            else
+                InsertScanline(right_bound->top.y);
         }
     }
 
@@ -630,13 +666,86 @@ namespace vatti
                 newcomer->bot, prev_prev_vertex(newcomer)->pt) > 0) == newcomer_is_left;
     }
 
+    // ToDo 这部分直接从 Clipper 复制而来，尝试试了几个案例都是对的 但是完全不懂这个
+    // 规则是怎么来的, 文章中提到了 contributing 这个概念，但是完全没提是怎么计算的
     bool clipper::is_contributing_closed(edge* e)
     {
-        return false;
+        switch (fillrule_)
+        {
+        case fill_rule::even_odd:
+            break;
+        case fill_rule::non_zero:
+            if (abs(e->wind_cnt) != 1) return false;
+            break;
+        case fill_rule::positive:
+            if (e->wind_cnt != 1) return false;
+            break;
+        case fill_rule::negative:
+            if (e->wind_cnt != -1) return false;
+            break;
+        }
+
+        switch (cliptype_)
+        {
+        case clip_type::none:
+            return false;
+        case clip_type::intersection:
+            switch (fillrule_)
+            {
+            case fill_rule::positive:
+                return (e->wind_cnt2 > 0);
+            case fill_rule::negative:
+                return (e->wind_cnt2 < 0);
+            default:
+                return (e->wind_cnt2 != 0);
+            }
+            break;
+
+        case clip_type::Union:
+            switch (fillrule_)
+            {
+            case fill_rule::positive:
+                return (e->wind_cnt2 <= 0);
+            case fill_rule::negative:
+                return (e->wind_cnt2 >= 0);
+            default:
+                return (e->wind_cnt2 == 0);
+            }
+            break;
+
+        case clip_type::difference:
+            bool result;
+            switch (fillrule_)
+            {
+            case fill_rule::positive:
+                result = (e->wind_cnt2 <= 0);
+                break;
+            case fill_rule::negative:
+                result = (e->wind_cnt2 >= 0);
+                break;
+            default:
+                result = (e->wind_cnt2 == 0);
+            }
+            if (get_poly_type(e) == PathType::Subject)
+                return result;
+            else
+                return !result;
+            break;
+
+        case clip_type::Xor: return true;  break;
+        }
+        return false;  // we should never get here
+    }
+
+    void clipper::insert_right_edge(edge* left, edge* right)
+    {
+        right->next_in_ael = left->next_in_ael;
+        if (left->next_in_ael) left->next_in_ael->prev_in_ael = right;
+        right->prev_in_ael = left;
+        left->next_in_ael = right;
     }
 
     // 关键部分之一，只能传入 ael 中的 edge
-    // 此时设置的环绕数还是相对于原始类型（Subject、Clip）来说的
     // edge 的 windcount 指的是 edge 左右两边的区域的环绕数，两个相邻区域的环绕数最多差1
     void clipper::set_windcount_closed(edge* e)
     {
@@ -664,8 +773,10 @@ namespace vatti
             //if e's WindCnt is in the SAME direction as its WindDx, then polygon
             //filling will be on the right of 'e'.
             //NB neither e2.WindCnt nor e2.WindDx should ever be 0.
-            if (std::signbit(e2->wind_cnt) == std::signbit(e2->wind_dx) < 0)
+            if (e2->wind_cnt * e2->wind_dx < 0)
             {
+                // 左边的边朝向和环绕数反向的话
+
                 //opposite directions so 'e' is outside 'e2' ...
                 if (abs(e2->wind_cnt) > 1)
                 {
@@ -683,8 +794,11 @@ namespace vatti
             }
             else
             {
+                // 左边的边朝向和环绕数同向的话
+
                 //'e' must be inside 'e2'
                 if (e2->wind_dx * e->wind_dx < 0)
+                    // 朝向相反意味着他们的 wind_cnt 都指向同一个区域
                     //reversing direction so use the same WC
                     e->wind_cnt = e2->wind_cnt;
                 else
@@ -696,6 +810,7 @@ namespace vatti
         }
 
         //update wind_cnt2 ...
+        // 往左循环，逐一增加相反类型的wind_dx
         if (fillrule_ == fill_rule::even_odd)
             while (e2 != e)
             {

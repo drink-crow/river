@@ -114,6 +114,7 @@ namespace vatti
         bool is_valid_ael_order(const edge* resident, const edge* newcomer);
         void set_windcount_closed(edge* e);
         bool is_contributing_closed(edge* e);
+        void insert_right_edge(edge* left, edge* right);
 
         clip_type cliptype_ = clip_type::intersection;
         fill_rule fillrule_ = fill_rule::positive;
