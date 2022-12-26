@@ -44,6 +44,17 @@ namespace vatti
         return (b - a).cross(c - b);
     }
 
+    // 取edge构造的直线中，y = currentY 时 x 的值
+    // ToDo 显然的不适应曲线内容
+    inline num top_x(const edge* ae, const num currentY)
+    {
+        if ((currentY == ae->top.y) || (ae->top.x == ae->bot.x)) return ae->top.x;
+        else if (currentY == ae->bot.y) return ae->bot.x;
+        else return ae->bot.x + static_cast<int64_t>(std::nearbyint(ae->dx * (currentY - ae->bot.y)));
+        // nb: std::nearbyint (or std::round) substantially *improves* performance here
+        // as it greatly improves the likelihood of edge adjacency in ProcessIntersectList().
+    }
+
     // 切记要提前处理了等价水平的曲线
     inline bool is_horizontal(const edge& e)
     {
@@ -70,6 +81,7 @@ namespace vatti
         return e->local_min->polytype;
     }
 
+    // always false
     inline bool is_open(const edge* e) {
         return false;
     }
@@ -96,6 +108,7 @@ namespace vatti
         e->dx = get_direct(e->bot, e->top);
     }
 
+    // 获取Y轴正方向上的下一个点
     inline vertex* next_vertex(const edge* e)
     {
         if (e->wind_dx > 0)
@@ -123,6 +136,7 @@ namespace vatti
         return is_maxima(*e->vertex_top);
     }
 
+    // hot_edge mean have out_poly
     inline bool is_hot_edge(const edge* e)
     {
         return (e->out_poly);
@@ -167,10 +181,75 @@ namespace vatti
             (cross_product(e->next_in_ael->top, e->bot, e->top) == 0);
     }
 
-
     inline bool is_front(const edge* e)
     {
         return (e == e->out_poly->front_edge);
+    }
+
+    inline bool is_open_end(const edge* e) {
+        return false;
+    }
+
+    // 试图获取连接这条边的 Y 轴向上第一个不水平且不是 maxima 的点
+    vertex* get_currY_maxima_vertex(const edge* e)
+    {
+        vertex* result = e->vertex_top;
+        if (e->wind_dx > 0)
+            while (result->next->pt.y == result->pt.y) result = result->next;
+        else
+            while (result->prev->pt.y == result->pt.y) result = result->prev;
+        if (!is_maxima(*result)) result = nullptr; // not a maxima   
+        return result;
+    }
+
+    edge* get_horz_maxima_pair(const edge* horz, const vertex* vert_max)
+    {
+        //we can't be sure whether the MaximaPair is on the left or right, so ...
+        auto result = horz->prev_in_ael;
+        while (result && result->curr_x >= vert_max->pt.x)
+        {
+            if (result->vertex_top == vert_max) return result;  // Found!
+            result = result->prev_in_ael;
+        }
+        result = horz->next_in_ael;
+        while (result && top_x(result, horz->top.y) <= vert_max->pt.x)
+        {
+            if (result->vertex_top == vert_max) return result;  // Found!
+            result = result->next_in_ael;
+        }
+        return nullptr;
+    }
+
+    inline void TrimHorz(edge* horzEdge, bool preserveCollinear)
+    {
+        bool wasTrimmed = false;
+        Point pt = next_vertex(horzEdge)->pt;
+        while (pt.y == horzEdge->top.y)
+        {
+            //always trim 180 deg. spikes (in closed paths)
+            //but otherwise break if preserveCollinear = true
+            if (preserveCollinear &&
+                ((pt.x < horzEdge->top.x) != (horzEdge->bot.x < horzEdge->top.x)))
+                break;
+
+            horzEdge->vertex_top = next_vertex(horzEdge);
+            horzEdge->top = pt;
+            wasTrimmed = true;
+            if (is_maxima(horzEdge)) break;
+            pt = next_vertex(horzEdge)->pt;
+        }
+
+        if (wasTrimmed) set_direct(horzEdge); // +/-infinity
+    }
+
+    inline void UncoupleOutRec(edge* ae)
+    {
+        out_polygon* outrec = ae->out_poly;
+        if (!outrec) return;
+        outrec->front_edge->out_poly = nullptr;
+        outrec->back_edge->out_poly = nullptr;
+        outrec->front_edge = nullptr;
+        outrec->back_edge = nullptr;
     }
 
     void clipper::add_path(const Paths& paths, PathType polytype, bool is_open)
@@ -358,6 +437,9 @@ namespace vatti
         while (true)
         {
             insert_local_minima_to_ael(y);
+            edge* e;
+            while (pop_horz(&e)) do_horizontal(e);
+
         }
     }
 
@@ -810,6 +892,327 @@ namespace vatti
     {
         e->next_in_sel = (sel_ ? sel_ : nullptr);
         sel_ = e;
+    }
+
+    bool clipper::pop_horz(edge** e)
+    {
+        *e = sel_;
+        if (!(*e)) return false;
+        sel_ = sel_->next_in_sel;
+        return true;
+    }
+
+    void clipper::do_horizontal(edge* horz)
+    /*******************************************************************************
+    * Notes: Horizontal edges (HEs) at scanline intersections (ie at the top or    *
+    * bottom of a scanbeam) are processed as if layered.The order in which HEs     *
+    * are processed doesn't matter. HEs intersect with the bottom vertices of      *
+    * other HEs[#] and with non-horizontal edges [*]. Once these intersections     *
+    * are completed, intermediate HEs are 'promoted' to the next edge in their     *
+    * bounds, and they in turn may be intersected[%] by other HEs.                 *
+    *                                                                              *
+    * eg: 3 horizontals at a scanline:    /   |                     /           /  *
+    *              |                     /    |     (HE3)o ========%========== o   *
+    *              o ======= o(HE2)     /     |         /         /                *
+    *          o ============#=========*======*========#=========o (HE1)           *
+    *         /              |        /       |       /                            *
+    *******************************************************************************/
+    {
+#if 0
+        Point pt;
+        bool horzIsOpen = is_open(horz);
+        auto y = horz->bot.y;
+        vertex* vertex_max = nullptr;
+        edge* max_pair = nullptr;
+
+        if (!horzIsOpen)
+        {
+            vertex_max = get_currY_maxima_vertex(horz);
+            if (vertex_max)
+            {
+                max_pair = get_horz_maxima_pair(horz, vertex_max);
+                //remove 180 deg.spikes and also simplify
+                //consecutive horizontals when PreserveCollinear = true
+                if (vertex_max != horz->vertex_top)
+                    TrimHorz(horz, PreserveCollinear);
+            }
+        }
+
+        num horz_left, horz_right;
+        bool is_left_to_right =
+            reset_horz_direction(horz, max_pair, horz_left, horz_right);
+
+        if (is_hot_edge(horz))
+            add_out_pt(horz, Point(horz->curr_x, y));
+
+        out_pt* op;
+        while (true) // loop through consec. horizontal edges
+        {
+            if (horzIsOpen && is_maxima(horz) && !is_open_end(horz))
+            {
+                vertex_max = get_currY_maxima_vertex(horz);
+                if (vertex_max)
+                    max_pair = get_horz_maxima_pair(horz, vertex_max);
+            }
+
+            edge* e;
+            if (is_left_to_right) e = horz->next_in_ael;
+            else e = horz->prev_in_ael;
+
+            while (e)
+            {
+
+                if (e == max_pair)
+                {
+                    if (is_hot_edge(horz))
+                    {
+                        while (horz->vertex_top != e->vertex_top)
+                        {
+                            add_out_pt(horz, horz->top);
+                            update_edge_into_ael(horz);
+                        }
+                        op = add_local_max_poly(horz, e, horz->top);
+                        if (op && !is_open(horz) && op->pt == horz->top)
+                            AddTrialHorzJoin(op);
+                    }
+                    DeleteFromAEL(*e);
+                    DeleteFromAEL(horz);
+                    return;
+                }
+
+                //if horzEdge is a maxima, keep going until we reach
+                //its maxima pair, otherwise check for break conditions
+                if (vertex_max != horz->vertex_top || is_open_end(horz))
+                {
+                    //otherwise stop when 'ae' is beyond the end of the horizontal line
+                    if ((is_left_to_right && e->curr_x > horz_right) ||
+                        (!is_left_to_right && e->curr_x < horz_left)) break;
+
+                    if (e->curr_x == horz->top.x && !is_horizontal(e))
+                    {
+                        pt = next_vertex(horz)->pt;
+                        if (is_left_to_right)
+                        {
+                            //with open paths we'll only break once past horz's end
+                            if (is_open(*e) && !IsSamePolyType(*e, horz) && !is_hot_edge(e))
+                            {
+                                if (TopX(*e, pt.y) > pt.x) break;
+                            }
+                            //otherwise we'll only break when horz's outslope is greater than e's
+                            else if (TopX(*e, pt.y) >= pt.x) break;
+                        }
+                        else
+                        {
+                            if (is_open(*e) && !IsSamePolyType(*e, horz) && !is_hot_edge(e))
+                            {
+                                if (TopX(*e, pt.y) < pt.x) break;
+                            }
+                            else if (TopX(*e, pt.y) <= pt.x) break;
+                        }
+                    }
+                }
+
+                pt = Point(e->curr_x, horz->bot.y);
+
+                if (is_left_to_right)
+                {
+                    op = IntersectEdges(horz, *e, pt);
+                    SwapPositionsInAEL(horz, *e);
+                    // todo: check if op->pt == pt test is still needed
+                    // expect op != pt only after AddLocalMaxPoly when horz->outrec == nullptr
+                    if (is_hot_edge(horz) && op && !is_open(horz) && op->pt == pt)
+                        AddTrialHorzJoin(op);
+
+                    if (!is_horizontal(e) && TestJoinWithPrev1(*e))
+                    {
+                        op = add_out_pt(*e->prev_in_ael, pt);
+                        out_pt* op2 = add_out_pt(*e, pt);
+                        add_join(op, op2);
+                    }
+
+                    horz->curr_x = e->curr_x;
+                    e = horz->next_in_ael;
+                }
+                else
+                {
+                    op = IntersectEdges(*e, horz, pt);
+                    SwapPositionsInAEL(*e, horz);
+
+                    if (is_hot_edge(horz) && op &&
+                        !is_open(horz) && op->pt == pt)
+                        AddTrialHorzJoin(op);
+
+                    if (!is_horizontal(e) && TestJoinWithNext1(*e))
+                    {
+                        op = add_out_pt(*e, pt);
+                        out_pt* op2 = add_out_pt(*e->next_in_ael, pt);
+                        add_join(op, op2);
+                    }
+
+                    horz->curr_x = e->curr_x;
+                    e = horz->prev_in_ael;
+                }
+            }
+
+            //check if we've finished with (consecutive) horizontals ...
+            if (horzIsOpen && is_open_end(horz)) // ie open at top
+            {
+                if (is_hot_edge(horz))
+                {
+                    add_out_pt(horz, horz->top);
+                    if (is_front(horz))
+                        horz->outrec->front_edge = nullptr;
+                    else
+                        horz->outrec->back_edge = nullptr;
+                    horz->outrec = nullptr;
+                }
+                DeleteFromAEL(horz);
+                return;
+            }
+            else if (next_vertex(horz)->pt.y != horz->top.y)
+                break;
+
+            //still more horizontals in bound to process ...
+            if (is_hot_edge(horz))
+                add_out_pt(horz, horz->top);
+            update_edge_into_ael(horz);
+
+            if (PreserveCollinear && !horzIsOpen && HorzIsSpike(horz))
+                TrimHorz(horz, true);
+
+            is_left_to_right =
+                ResetHorzDirection(horz, max_pair, horz_left, horz_right);
+        }
+
+        if (is_hot_edge(horz))
+        {
+            op = add_out_pt(horz, horz->top);
+            if (!is_open(horz))
+                AddTrialHorzJoin(op);
+        }
+        else
+            op = nullptr;
+
+        if ((horzIsOpen && !is_open_end(horz)) ||
+            (!horzIsOpen && vertex_max != horz->vertex_top))
+        {
+            update_edge_into_ael(horz); // this is the end of an intermediate horiz.
+            if (is_open(horz)) return;
+
+            if (is_left_to_right && TestJoinWithNext1(horz))
+            {
+                out_pt* op2 = add_out_pt(*horz->next_in_ael, horz->bot);
+                add_join(op, op2);
+            }
+            else if (!is_left_to_right && TestJoinWithPrev1(horz))
+            {
+                out_pt* op2 = add_out_pt(*horz->prev_in_ael, horz->bot);
+                add_join(op2, op);
+            }
+        }
+        else if (is_hot_edge(horz))
+            AddLocalMaxPoly(horz, *max_pair, horz->top);
+        else
+        {
+            DeleteFromAEL(*max_pair);
+            DeleteFromAEL(horz);
+        }
+#endif
+    }
+
+    bool clipper::reset_horz_direction(const edge* horz, const edge* max_pair, num& horz_left, num& horz_right)
+    {
+        if (horz->bot.x == horz->top.x)
+        {
+            //the horizontal edge is going nowhere ...
+            horz_left = horz->curr_x;
+            horz_right = horz->curr_x;
+            auto e = horz->next_in_ael;
+            while (e && e != max_pair) e = e->next_in_ael;
+            return e != nullptr;
+        }
+        else if (horz->curr_x < horz->top.x)
+        {
+            horz_left = horz->curr_x;
+            horz_right = horz->top.x;
+            return true;
+        }
+        else
+        {
+            horz_left = horz->top.x;
+            horz_right = horz->curr_x;
+            return false;  // right to left
+        }
+    }
+
+    void clipper::update_edge_into_ael(edge* e)
+    {
+        e->bot = e->top;
+        e->vertex_top = next_vertex(e);
+        e->top = e->vertex_top->pt;
+        e->curr_x = e->bot.x;
+        set_direct(e);
+        if (is_horizontal(*e)) return;
+        insert_scanline(e->top.y);
+        if (test_join_with_prev1(e))
+        {
+            out_pt* op1 = add_out_pt(e->prev_in_ael, e->bot);
+            out_pt* op2 = add_out_pt(e, e->bot);
+            add_join(op1, op2);
+        }
+    }
+
+    void clipper::CleanCollinear(out_polygon* output)
+    {
+    }
+
+    void clipper::JoinOutrecPaths(edge* e1, edge* e2)
+    {
+    }
+
+    out_pt* clipper::add_local_max_poly(edge* e1, edge* e2, const Point& pt)
+    {
+        if (is_front(e1) == is_front(e2))
+        {
+            if (is_open_end(e1))
+                //SwapFrontBackSides(*e1.outrec);
+                ;
+            else if (is_open_end(e2))
+                //SwapFrontBackSides(*e2.outrec);
+                ;
+            else
+            {
+                succeeded_ = false;
+                return nullptr;
+            }
+        }
+
+        auto result = add_out_pt(e1, pt);
+        if (e1->out_poly == e2->out_poly)
+        {
+            auto& outrec = *e1->out_poly;
+            outrec.pts = result;
+
+            UncoupleOutRec(e1);
+            if (!is_open(e1)) CleanCollinear(&outrec);
+            result = outrec.pts;
+            //if (using_polytree_ && outrec.owner && !outrec.owner->front_edge)
+            //    outrec.owner = GetRealOutRec(outrec.owner->owner);
+        }
+        //and to preserve the winding orientation of outrec ...
+        else if (is_open(e1))
+        {
+            if (e1->wind_dx < 0)
+                JoinOutrecPaths(e1, e2);
+            else
+                JoinOutrecPaths(e2, e1);
+        }
+        else if (e1->out_poly->idx < e2->out_poly->idx)
+            JoinOutrecPaths(e1, e2);
+        else
+            JoinOutrecPaths(e2, e1);
+
+        return result;
     }
 
     out_pt* clipper::add_out_pt(const edge* e, const Point& pt)

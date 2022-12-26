@@ -29,6 +29,7 @@ namespace vatti
 
     struct edge;
     struct out_pt;
+    struct out_polygon;
     struct joiner;
 
     struct vertex
@@ -99,7 +100,7 @@ namespace vatti
         Point bot;
         Point top;
         num curr_x = 0;
-        // ToDo 单 double 不足以表示走向和斜率
+        // ToDo 单 double 不足以表示曲线内容走向和斜率
         double dx = 0.;
         int wind_dx = 1; //1 or -1 depending on winding direction
         int wind_cnt = 0;
@@ -169,9 +170,17 @@ namespace vatti
         bool is_contributing_closed(edge* e);
         void insert_right_edge(edge* left, edge* right);
         out_pt* add_local_min_poly(edge* e1, edge* e2, const Point& pt, bool is_new);
+        out_pt* add_local_max_poly(edge* e1, edge* e2, const Point& pt);
         out_pt* add_out_pt(const edge* e, const Point& pt);
         void add_join(out_pt* op1, out_pt* op2);
         void push_horz(edge* e);
+        bool pop_horz(edge** e);
+        void do_horizontal(edge* e);
+        bool reset_horz_direction(const edge* horz, const edge* max_pair,
+            num& horz_left, num& horz_right);
+        void update_edge_into_ael(edge* e);
+        void CleanCollinear(out_polygon* output);
+        void JoinOutrecPaths(edge* e1, edge* e2);
 
         clip_type cliptype_ = clip_type::intersection;
         fill_rule fillrule_ = fill_rule::positive;
@@ -186,6 +195,8 @@ namespace vatti
         edge* sel_ = nullptr;
         std::vector<out_polygon*> outrec_list_;
         std::vector<joiner*> joiner_list_;
+        bool PreserveCollinear = false;
+        bool succeeded_ = true;
 
         std::vector<break_info> break_info_list;
     };
