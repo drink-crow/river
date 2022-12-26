@@ -163,13 +163,14 @@ namespace vatti
         void insert_scanline(num y);
         bool pop_scanline(num& y);
         void insert_local_minima_to_ael(num y);
+        out_pt* intersect_edges(edge* e1, edge* e2, const Point& pt);
         bool pop_local_minima(num y, local_minima**);
         void insert_left_edge(edge* e);
         bool is_valid_ael_order(const edge* resident, const edge* newcomer);
         void set_windcount_closed(edge* e);
         bool is_contributing_closed(edge* e);
         void insert_right_edge(edge* left, edge* right);
-        out_pt* add_local_min_poly(edge* e1, edge* e2, const Point& pt, bool is_new);
+        out_pt* add_local_min_poly(edge* e1, edge* e2, const Point& pt, bool is_new = false);
         out_pt* add_local_max_poly(edge* e1, edge* e2, const Point& pt);
         out_pt* add_out_pt(const edge* e, const Point& pt);
         void add_join(out_pt* op1, out_pt* op2);
@@ -180,10 +181,16 @@ namespace vatti
             num& horz_left, num& horz_right);
         void update_edge_into_ael(edge* e);
         void CleanCollinear(out_polygon* output);
-        void JoinOutrecPaths(edge* e1, edge* e2);
+        void JoinOutrecPaths(edge* dest, edge* src);
+        void DoTopOfScanbeam(num y);
+        edge* DoMaxima(edge* e);
+        void SwapPositionsInAEL(edge* e1, edge* e2);
+        void DeleteFromAEL(edge* e);
 
         clip_type cliptype_ = clip_type::intersection;
         fill_rule fillrule_ = fill_rule::positive;
+        fill_rule fillpos = fill_rule::positive;
+
         // 使用 object_pool 提高内存申请的效率和放置内存泄露
         boost::object_pool<vertex> vertex_pool;
         std::vector<vertex*> paths_start;
@@ -192,11 +199,12 @@ namespace vatti
         // 不知道为啥 Clipper 要特意使用 priority_queue，先模仿下
         std::priority_queue<num> scanline_list;
         edge* ael_first = nullptr;
-        edge* sel_ = nullptr;
+        edge* sel_first = nullptr;
         std::vector<out_polygon*> outrec_list_;
         std::vector<joiner*> joiner_list_;
         bool PreserveCollinear = false;
         bool succeeded_ = true;
+        num bot_y_;
 
         std::vector<break_info> break_info_list;
     };

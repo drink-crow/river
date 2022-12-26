@@ -61,6 +61,10 @@ namespace vatti
         return (e.top.y == e.bot.y);
     }
 
+    inline bool is_horizontal(const edge* e) {
+        return is_horizontal(*e);
+    }
+
     inline bool horz_is_heading_right(const edge& e)
     {
         return e.dx == -std::numeric_limits<double>::max();
@@ -181,6 +185,7 @@ namespace vatti
             (cross_product(e->next_in_ael->top, e->bot, e->top) == 0);
     }
 
+    // e is front edge of its out_poly
     inline bool is_front(const edge* e)
     {
         return (e == e->out_poly->front_edge);
@@ -188,6 +193,16 @@ namespace vatti
 
     inline bool is_open_end(const edge* e) {
         return false;
+    }
+
+    inline bool IsSamePolyType(const edge& e1, const edge& e2)
+    {
+        return e1.local_min->polytype == e2.local_min->polytype;
+    }
+
+    inline bool IsSamePolyType(const edge* e1, const edge* e2)
+    {
+        return IsSamePolyType(*e1, *e2);
     }
 
     // 试图获取连接这条边的 Y 轴向上第一个不水平且不是 maxima 的点
@@ -250,6 +265,53 @@ namespace vatti
         outrec->back_edge->out_poly = nullptr;
         outrec->front_edge = nullptr;
         outrec->back_edge = nullptr;
+    }
+
+    // 在 ael 中往后查找一个和 e 拥有相同 vertex_top（即同一个轮廓）的 active edge
+    edge* get_maxima_pair(const edge* e)
+    {
+        edge* e2 = e->next_in_ael;
+        while (e2)
+        {
+            // 由于 ael 是排序过往后遍历的，所以这里也只需要往后遍历
+            if (e2->vertex_top == e->vertex_top) return e2;  // Found!
+            e2 = e2->next_in_ael;
+        }
+        return nullptr;
+    }
+
+    void SwapOutrecs(edge& e1, edge& e2)
+    {
+        out_polygon* or1 = e1.out_poly;
+        out_polygon* or2 = e2.out_poly;
+        if (or1 == or2)
+        {
+            edge* e = or1->front_edge;
+            or1->front_edge = or1->back_edge;
+            or1->back_edge = e;
+            return;
+        }
+        if (or1)
+        {
+            if (&e1 == or1->front_edge)
+                or1->front_edge = &e2;
+            else
+                or1->back_edge = &e2;
+        }
+        if (or2)
+        {
+            if (&e2 == or2->front_edge)
+                or2->front_edge = &e1;
+            else
+                or2->back_edge = &e1;
+        }
+        e1.out_poly = or2;
+        e2.out_poly = or1;
+    }
+
+    void SwapOutrecs(edge* e1, edge* e2)
+    {
+        SwapOutrecs(*e1, *e2);
     }
 
     void clipper::add_path(const Paths& paths, PathType polytype, bool is_open)
@@ -439,7 +501,12 @@ namespace vatti
             insert_local_minima_to_ael(y);
             edge* e;
             while (pop_horz(&e)) do_horizontal(e);
-
+            //if (horz_joiners_) ConvertHorzTrialsToJoins();
+            bot_y_ = y;  // bot_y_ == bottom of scanbeam
+            if (!pop_scanline(y)) break;  // y new top of scanbeam
+            //DoIntersections(y);
+            DoTopOfScanbeam(y);
+            while (pop_horz(&e)) do_horizontal(e);
         }
     }
 
@@ -888,17 +955,287 @@ namespace vatti
         scanline_list.push(y);
     }
 
+    out_pt* clipper::intersect_edges(edge* e1, edge* e2, const Point& pt)
+    {
+        //MANAGE OPEN PATH INTERSECTIONS SEPARATELY ...
+
+        // 暂时跳过非闭合线段
+#if 0
+        if (has_open_paths_ && (IsOpen(e1) || IsOpen(e2)))
+        {
+            if (IsOpen(e1) && IsOpen(e2)) return nullptr;
+
+            Active* edge_o, * edge_c;
+            if (IsOpen(e1))
+            {
+                edge_o = &e1;
+                edge_c = &e2;
+            }
+            else
+            {
+                edge_o = &e2;
+                edge_c = &e1;
+            }
+
+            if (abs(edge_c->wind_cnt) != 1) return nullptr;
+            switch (cliptype_)
+            {
+            case clip_type::Union:
+                if (!is_hot_edge(*edge_c)) return nullptr;
+                break;
+            default:
+                if (edge_c->local_min->polytype == PathType::Subject)
+                    return nullptr;
+            }
+
+            switch (fillrule_)
+            {
+            case fill_rule::Positive: if (edge_c->wind_cnt != 1) return nullptr; break;
+            case fill_rule::Negative: if (edge_c->wind_cnt != -1) return nullptr; break;
+            default: if (std::abs(edge_c->wind_cnt) != 1) return nullptr; break;
+            }
+
+            //toggle contribution ...
+            if (is_hot_edge(*edge_o))
+            {
+                OutPt* resultOp = add_out_pt(*edge_o, pt);
+#ifdef USINGZ
+                if (zCallback_) SetZ(e1, e2, resultOp->pt);
+#endif
+                if (is_front(*edge_o)) edge_o->outrec->front_edge = nullptr;
+                else edge_o->outrec->back_edge = nullptr;
+                edge_o->outrec = nullptr;
+                return resultOp;
+            }
+
+            //horizontal edges can pass under open paths at a LocMins
+            else if (pt == edge_o->local_min->vertex->pt &&
+                !IsOpenEnd(*edge_o->local_min->vertex))
+            {
+                //find the other side of the LocMin and
+                //if it's 'hot' join up with it ...
+                Active* e3 = FindEdgeWithMatchingLocMin(edge_o);
+                if (e3 && is_hot_edge(*e3))
+                {
+                    edge_o->outrec = e3->outrec;
+                    if (edge_o->wind_dx > 0)
+                        SetSides(*e3->outrec, *edge_o, *e3);
+                    else
+                        SetSides(*e3->outrec, *e3, *edge_o);
+                    return e3->outrec->pts;
+                }
+                else
+                    return StartOpenPath(*edge_o, pt);
+            }
+            else
+                return StartOpenPath(*edge_o, pt);
+        }
+#endif
+
+        //MANAGING CLOSED PATHS FROM HERE ON
+
+        //UPDATE WINDING COUNTS...
+
+        int old_e1_windcnt, old_e2_windcnt;
+        if (e1->local_min->polytype == e2->local_min->polytype)
+        {
+            if (fillrule_ == fill_rule::even_odd)
+            {
+                old_e1_windcnt = e1->wind_cnt;
+                e1->wind_cnt = e2->wind_cnt;
+                e2->wind_cnt = old_e1_windcnt;
+            }
+            else
+            {
+                if (e1->wind_cnt + e2->wind_dx == 0)
+                    e1->wind_cnt = -e1->wind_cnt;
+                else
+                    e1->wind_cnt += e2->wind_dx;
+                if (e2->wind_cnt - e1->wind_dx == 0)
+                    e2->wind_cnt = -e2->wind_cnt;
+                else
+                    e2->wind_cnt -= e1->wind_dx;
+            }
+        }
+        else
+        {
+            if (fillrule_ != fill_rule::even_odd)
+            {
+                e1->wind_cnt2 += e2->wind_dx;
+                e2->wind_cnt2 -= e1->wind_dx;
+            }
+            else
+            {
+                e1->wind_cnt2 = (e1->wind_cnt2 == 0 ? 1 : 0);
+                e2->wind_cnt2 = (e2->wind_cnt2 == 0 ? 1 : 0);
+            }
+        }
+
+        switch (fillrule_)
+        {
+        case fill_rule::even_odd:
+        case fill_rule::non_zero:
+            old_e1_windcnt = abs(e1->wind_cnt);
+            old_e2_windcnt = abs(e2->wind_cnt);
+            break;
+        default:
+            if (fillrule_ == fillpos)
+            {
+                old_e1_windcnt = e1->wind_cnt;
+                old_e2_windcnt = e2->wind_cnt;
+            }
+            else
+            {
+                old_e1_windcnt = -e1->wind_cnt;
+                old_e2_windcnt = -e2->wind_cnt;
+            }
+            break;
+        }
+
+        const bool e1_windcnt_in_01 = old_e1_windcnt == 0 || old_e1_windcnt == 1;
+        const bool e2_windcnt_in_01 = old_e2_windcnt == 0 || old_e2_windcnt == 1;
+
+        if ((!is_hot_edge(e1) && !e1_windcnt_in_01) || (!is_hot_edge(e2) && !e2_windcnt_in_01))
+        {
+            return nullptr;
+        }
+
+        //NOW PROCESS THE INTERSECTION ...
+        out_pt* resultOp = nullptr;
+        //if both edges are 'hot' ...
+        if (is_hot_edge(e1) && is_hot_edge(e2))
+        {
+            if ((old_e1_windcnt != 0 && old_e1_windcnt != 1) || (old_e2_windcnt != 0 && old_e2_windcnt != 1) ||
+                (e1->local_min->polytype != e2->local_min->polytype && cliptype_ != clip_type::Xor))
+            {
+                resultOp = add_local_max_poly(e1, e2, pt);
+#ifdef USINGZ
+                if (zCallback_ && resultOp) SetZ(e1, e2, resultOp->pt);
+#endif
+            }
+            else if (is_front(e1) || (e1->out_poly == e2->out_poly))
+            {
+                //this 'else if' condition isn't strictly needed but
+                //it's sensible to split polygons that ony touch at
+                //a common vertex (not at common edges).
+
+                resultOp = add_local_max_poly(e1, e2, pt);
+                out_pt* op2 = add_local_min_poly(e1, e2, pt);
+#ifdef USINGZ
+                if (zCallback_ && resultOp) SetZ(e1, e2, resultOp->pt);
+                if (zCallback_) SetZ(e1, e2, op2->pt);
+#endif
+                if (resultOp && resultOp->pt == op2->pt &&
+                    !is_horizontal(e1) && !is_horizontal(e2) &&
+                    (cross_product(e1->bot, resultOp->pt, e2->bot) == 0))
+                    add_join(resultOp, op2);
+            }
+            else
+            {
+                resultOp = add_out_pt(e1, pt);
+#ifdef USINGZ
+                OutPt* op2 = add_out_pt(e2, pt);
+                if (zCallback_)
+                {
+                    SetZ(e1, e2, resultOp->pt);
+                    SetZ(e1, e2, op2->pt);
+                }
+#else
+                add_out_pt(e2, pt);
+#endif
+                SwapOutrecs(e1, e2);
+            }
+        }
+        else if (is_hot_edge(e1))
+        {
+            resultOp = add_out_pt(e1, pt);
+#ifdef USINGZ
+            if (zCallback_) SetZ(e1, e2, resultOp->pt);
+#endif
+            SwapOutrecs(e1, e2);
+        }
+        else if (is_hot_edge(e2))
+        {
+            resultOp = add_out_pt(e2, pt);
+#ifdef USINGZ
+            if (zCallback_) SetZ(e1, e2, resultOp->pt);
+#endif
+            SwapOutrecs(e1, e2);
+        }
+        else
+        {
+            int64_t e1Wc2, e2Wc2;
+            switch (fillrule_)
+            {
+            case fill_rule::even_odd:
+            case fill_rule::non_zero:
+                e1Wc2 = abs(e1->wind_cnt2);
+                e2Wc2 = abs(e2->wind_cnt2);
+                break;
+            default:
+                if (fillrule_ == fillpos)
+                {
+                    e1Wc2 = e1->wind_cnt2;
+                    e2Wc2 = e2->wind_cnt2;
+                }
+                else
+                {
+                    e1Wc2 = -e1->wind_cnt2;
+                    e2Wc2 = -e2->wind_cnt2;
+                }
+                break;
+            }
+
+            if (!IsSamePolyType(e1, e2))
+            {
+                resultOp = add_local_min_poly(e1, e2, pt, false);
+#ifdef USINGZ
+                if (zCallback_) SetZ(e1, e2, resultOp->pt);
+#endif
+            }
+            else if (old_e1_windcnt == 1 && old_e2_windcnt == 1)
+            {
+                resultOp = nullptr;
+                switch (cliptype_)
+                {
+                case clip_type::Union:
+                    if (e1Wc2 <= 0 && e2Wc2 <= 0)
+                        resultOp = add_local_min_poly(e1, e2, pt, false);
+                    break;
+                case clip_type::difference:
+                    if (((get_poly_type(e1) == PathType::Clip) && (e1Wc2 > 0) && (e2Wc2 > 0)) ||
+                        ((get_poly_type(e1) == PathType::Subject) && (e1Wc2 <= 0) && (e2Wc2 <= 0)))
+                    {
+                        resultOp = add_local_min_poly(e1, e2, pt, false);
+                    }
+                    break;
+                case clip_type::Xor:
+                    resultOp = add_local_min_poly(e1, e2, pt, false);
+                    break;
+                default:
+                    if (e1Wc2 > 0 && e2Wc2 > 0)
+                        resultOp = add_local_min_poly(e1, e2, pt, false);
+                    break;
+                }
+#ifdef USINGZ
+                if (resultOp && zCallback_) SetZ(e1, e2, resultOp->pt);
+#endif
+            }
+        }
+        return resultOp;
+    }
+
     void clipper::push_horz(edge* e)
     {
-        e->next_in_sel = (sel_ ? sel_ : nullptr);
-        sel_ = e;
+        e->next_in_sel = (sel_first ? sel_first : nullptr);
+        sel_first = e;
     }
 
     bool clipper::pop_horz(edge** e)
     {
-        *e = sel_;
+        *e = sel_first;
         if (!(*e)) return false;
-        sel_ = sel_->next_in_sel;
+        sel_first = sel_first->next_in_sel;
         return true;
     }
 
@@ -1019,7 +1356,7 @@ namespace vatti
                     op = IntersectEdges(horz, *e, pt);
                     SwapPositionsInAEL(horz, *e);
                     // todo: check if op->pt == pt test is still needed
-                    // expect op != pt only after AddLocalMaxPoly when horz->outrec == nullptr
+                    // expect op != pt only after add_local_max_poly when horz->outrec == nullptr
                     if (is_hot_edge(horz) && op && !is_open(horz) && op->pt == pt)
                         AddTrialHorzJoin(op);
 
@@ -1111,7 +1448,7 @@ namespace vatti
             }
         }
         else if (is_hot_edge(horz))
-            AddLocalMaxPoly(horz, *max_pair, horz->top);
+            add_local_max_poly(horz, *max_pair, horz->top);
         else
         {
             DeleteFromAEL(*max_pair);
@@ -1166,8 +1503,177 @@ namespace vatti
     {
     }
 
-    void clipper::JoinOutrecPaths(edge* e1, edge* e2)
+    void clipper::JoinOutrecPaths(edge* dest, edge* src)
     {
+        //join e2 out_poly path onto e1 out_poly path and then delete e2 out_poly path
+        //pointers. (NB Only very rarely do the joining ends share the same coords.)
+        out_pt* p1_st = dest->out_poly->pts;
+        out_pt* p2_st = src->out_poly->pts;
+        out_pt* p1_end = p1_st->next;
+        out_pt* p2_end = p2_st->next;
+        if (is_front(dest))
+        {
+            p2_end->prev = p1_st;
+            p1_st->next = p2_end;
+            p2_st->next = p1_end;
+            p1_end->prev = p2_st;
+            dest->out_poly->pts = p2_st;
+            dest->out_poly->front_edge = src->out_poly->front_edge;
+            if (dest->out_poly->front_edge)
+                dest->out_poly->front_edge->out_poly = dest->out_poly;
+        }
+        else
+        {
+            p1_end->prev = p2_st;
+            p2_st->next = p1_end;
+            p1_st->next = p2_end;
+            p2_end->prev = p1_st;
+            dest->out_poly->back_edge = src->out_poly->back_edge;
+            if (dest->out_poly->back_edge)
+                dest->out_poly->back_edge->out_poly = dest->out_poly;
+        }
+
+        //an owner must have a lower idx otherwise
+        //it can't be a valid owner
+        if (src->out_poly->owner && src->out_poly->owner->idx < dest->out_poly->idx)
+        {
+            if (!dest->out_poly->owner || src->out_poly->owner->idx < dest->out_poly->owner->idx)
+                dest->out_poly->owner = src->out_poly->owner;
+        }
+
+        //after joining, the src->OutRec must contains no vertices ...
+        src->out_poly->front_edge = nullptr;
+        src->out_poly->back_edge = nullptr;
+        src->out_poly->pts = nullptr;
+        src->out_poly->owner = dest->out_poly;
+
+        if (is_open_end(dest))
+        {
+            src->out_poly->pts = dest->out_poly->pts;
+            dest->out_poly->pts = nullptr;
+        }
+
+        //and e1 and e2 are maxima and are about to be dropped from the Actives list.
+        dest->out_poly = nullptr;
+        src->out_poly = nullptr;
+    }
+
+    void clipper::DoTopOfScanbeam(num y)
+    {
+        sel_first = nullptr;  // sel_ is reused to flag horizontals (see PushHorz below)
+        edge* e = ael_first;
+        while (e)
+        {
+            //nb: 'e' will never be horizontal here
+            if (e->top.y == y)
+            {
+                e->curr_x = e->top.x;
+                if (is_maxima(e))
+                {
+                    e = DoMaxima(e);  // TOP OF BOUND (MAXIMA)
+                    continue;
+                }
+                else
+                {
+                    //INTERMEDIATE VERTEX ...
+                    if (is_hot_edge(e)) add_out_pt(e, e->top);
+                    update_edge_into_ael(e);
+                    if (is_horizontal(*e))
+                        pop_horz(&e);  // horizontals are processed later
+                }
+            }
+            else // i.e. not the top of the edge
+                e->curr_x = top_x(e, y);
+
+            e = e->next_in_ael;
+        }
+    }
+
+    // e must is_maxima
+    edge* clipper::DoMaxima(edge* e)
+    {
+        edge* next_e, * prev_e, * max_pair;
+        prev_e = e->prev_in_ael;
+        next_e = e->next_in_ael;
+        if (is_open_end(e))
+        {
+            if (is_hot_edge(e)) add_out_pt(e, e->top);
+            if (!is_horizontal(e))
+            {
+                if (is_hot_edge(e))
+                {
+                    if (is_front(e))
+                        e->out_poly->front_edge = nullptr;
+                    else
+                        e->out_poly->back_edge = nullptr;
+                    e->out_poly = nullptr;
+                }
+                DeleteFromAEL(e);
+            }
+            return next_e;
+        }
+        else
+        {
+            max_pair = get_maxima_pair(e);
+            // maxima 必定是左右成对的，没找到说明和它连接的是平行的线
+            // 因为水平的线会优先处理掉，因此返回 next_e 继续处理
+            if (!max_pair) return next_e;  // eMaxPair is horizontal
+        }
+
+        //only non-horizontal maxima here.
+        //process any edges between maxima pair ...
+        // 在 maxima pair 之间的边会被跳过到下一轮处理
+        while (next_e != max_pair)
+        {
+            intersect_edges(e, next_e, e->top);
+            SwapPositionsInAEL(e, next_e);
+            next_e = e->next_in_ael;
+        }
+
+        if (is_open(e))
+        {
+            if (is_hot_edge(e))
+                add_local_max_poly(e, max_pair, e->top);
+            DeleteFromAEL(max_pair);
+            DeleteFromAEL(e);
+            return (prev_e ? prev_e->next_in_ael : ael_first);
+        }
+
+        //here E.next_in_ael == ENext == EMaxPair ...
+        if (is_hot_edge(e))
+            add_local_max_poly(e, max_pair, e->top);
+
+        // 当走到一个 maxima top vertex 时，说明这个 active edge 差不多该结束了
+        DeleteFromAEL(e);
+        DeleteFromAEL(max_pair);
+        return (prev_e ? prev_e->next_in_ael : ael_first);
+    }
+
+    void clipper::DeleteFromAEL(edge* e)
+    {
+        edge* prev = e->prev_in_ael;
+        edge* next = e->next_in_ael;
+        if (!prev && !next && (e != ael_first)) return;  // already deleted
+        if (prev)
+            prev->next_in_ael = next;
+        else
+            ael_first = next;
+        if (next) next->prev_in_ael = prev;
+        delete& e;
+    }
+
+    void clipper::SwapPositionsInAEL(edge* e1, edge* e2)
+    {
+        //preconditon: e1 must be immediately to the left of e2
+        edge* next = e2->next_in_ael;
+        if (next) next->prev_in_ael = e1;
+        edge* prev = e1->prev_in_ael;
+        if (prev) prev->next_in_ael = e2;
+        e2->prev_in_ael = prev;
+        e2->next_in_ael = e1;
+        e1->prev_in_ael = e2;
+        e1->next_in_ael = next;
+        if (!e2->prev_in_ael) ael_first = e2;
     }
 
     out_pt* clipper::add_local_max_poly(edge* e1, edge* e2, const Point& pt)
@@ -1182,12 +1688,15 @@ namespace vatti
                 ;
             else
             {
+                // 正常情况下不该会有 maxima vertex 左右两边都是 front edge
                 succeeded_ = false;
                 return nullptr;
             }
         }
 
         auto result = add_out_pt(e1, pt);
+        
+        // 左右同一个输出，则合并
         if (e1->out_poly == e2->out_poly)
         {
             auto& outrec = *e1->out_poly;
@@ -1196,8 +1705,10 @@ namespace vatti
             UncoupleOutRec(e1);
             if (!is_open(e1)) CleanCollinear(&outrec);
             result = outrec.pts;
-            //if (using_polytree_ && outrec.owner && !outrec.owner->front_edge)
-            //    outrec.owner = GetRealOutRec(outrec.owner->owner);
+#if 0 // 暂时跳过生成 polytree
+            if (using_polytree_ && outrec.owner && !outrec.owner->front_edge)
+                outrec.owner = GetRealOutRec(outrec.owner->owner);
+#endif
         }
         //and to preserve the winding orientation of outrec ...
         else if (is_open(e1))
@@ -1207,6 +1718,7 @@ namespace vatti
             else
                 JoinOutrecPaths(e2, e1);
         }
+        // 左右是不同输出（多边形有相交），根据序号后面的合并到前面
         else if (e1->out_poly->idx < e2->out_poly->idx)
             JoinOutrecPaths(e1, e2);
         else
@@ -1226,6 +1738,7 @@ namespace vatti
         out_pt* op_front = outpoly->pts;
         out_pt* op_back = op_front->next;
 
+        // 跳过相同的点
         if (to_front)
         {
             if (pt == op_front->pt)
@@ -1234,6 +1747,7 @@ namespace vatti
         else if (pt == op_back->pt)
             return op_back;
 
+        // insert new_op between op_front -> op_back
         new_op = new out_pt(pt, outpoly);
         op_back->prev = new_op;
         new_op->prev = op_front;
@@ -1272,7 +1786,7 @@ namespace vatti
             //e.windDx is the winding direction of the **input** paths
             //and unrelated to the winding direction of output polygons.
             //Output orientation is determined by e.outrec.frontE which is
-            //the ascending edge (see AddLocalMinPoly).
+            //the ascending edge (see add_local_min_poly).
             if (prevHotEdge)
             {
                 outrec->owner = prevHotEdge->out_poly;
