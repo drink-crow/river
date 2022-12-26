@@ -1578,8 +1578,8 @@ namespace vatti
                     //INTERMEDIATE VERTEX ...
                     if (is_hot_edge(e)) add_out_pt(e, e->top);
                     update_edge_into_ael(e);
-                    if (is_horizontal(*e))
-                        pop_horz(&e);  // horizontals are processed later
+                    if (is_horizontal(e))
+                        push_horz(e);  // horizontals are processed later
                 }
             }
             else // i.e. not the top of the edge
@@ -1662,9 +1662,9 @@ namespace vatti
         delete& e;
     }
 
+    //preconditon: e1 must be immediately to the left of e2
     void clipper::SwapPositionsInAEL(edge* e1, edge* e2)
     {
-        //preconditon: e1 must be immediately to the left of e2
         edge* next = e2->next_in_ael;
         if (next) next->prev_in_ael = e1;
         edge* prev = e1->prev_in_ael;
@@ -1676,6 +1676,7 @@ namespace vatti
         if (!e2->prev_in_ael) ael_first = e2;
     }
 
+    // e1,e2 必须是成对的 maxima edge，或者是 intersect 处理中视为成对的 active edge
     out_pt* clipper::add_local_max_poly(edge* e1, edge* e2, const Point& pt)
     {
         if (is_front(e1) == is_front(e2))
