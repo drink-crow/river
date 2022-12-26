@@ -28,6 +28,8 @@ namespace vatti
     }
 
     struct edge;
+    struct out_pt;
+    struct joiner;
 
     struct vertex
     {
@@ -67,10 +69,29 @@ namespace vatti
         }
     };
 
+    struct out_pt {
+        Point pt;
+        out_pt* next = nullptr;
+        out_pt* prev = nullptr;
+        out_polygon* outrec;
+        joiner* joiner = nullptr;
+
+        out_pt(const Point& pt_, out_polygon* outrec_) : pt(pt_), outrec(outrec_) {
+            next = this;
+            prev = this;
+        }
+    };
+
     struct out_polygon
     {
+        size_t idx = 0;
+        out_polygon* owner = nullptr;
+
         edge* front_edge = nullptr;
         edge* back_edge = nullptr;
+        out_pt* pts = nullptr;
+
+        bool is_open = false;
     };
 
     struct edge
@@ -83,15 +104,46 @@ namespace vatti
         int wind_dx = 1; //1 or -1 depending on winding direction
         int wind_cnt = 0;
         int wind_cnt2 = 0;		//winding count of the opposite polytype
-        out_polygon* out_poly;
+        out_polygon* out_poly = nullptr;
 
         edge* prev_in_ael = nullptr;
         edge* next_in_ael = nullptr;
+        //SEL: 'sorted edge list' (Vatti's ST - sorted table)
+        //     linked list used when sorting edges into their new positions at the
+        //     top of scanbeams, but also (re)used to process horizontals.
+        edge* prev_in_sel = nullptr;
+        edge* next_in_sel = nullptr;
         edge* jump = nullptr;
         vertex* vertex_top = nullptr;
         local_minima* local_min = nullptr;
 
         bool is_left_bound = false;
+    };
+
+    struct joiner
+    {
+        int      idx;
+        out_pt* op1;
+        out_pt* op2;
+        joiner* next1;
+        joiner* next2;
+        joiner* nextH;
+
+        explicit joiner(out_pt* op1_, out_pt* op2_, joiner* nexth) :
+            op1(op1_), op2(op2_), nextH(nexth)
+        {
+            idx = -1;
+            next1 = op1->joiner;
+            op1->joiner = this;
+
+            if (op2)
+            {
+                next2 = op2->joiner;
+                op2->joiner = this;
+            }
+            else
+                next2 = nullptr;
+        }
     };
 
     class clipper
@@ -107,6 +159,7 @@ namespace vatti
         vertex* new_vertex();
         void set_segment(vertex* prev, vertex* mem, Seg* move_seg);
         void add_local_min(vertex* vert, PathType, bool is_open);
+        void insert_scanline(num y);
         bool pop_scanline(num& y);
         void insert_local_minima_to_ael(num y);
         bool pop_local_minima(num y, local_minima**);
@@ -115,6 +168,10 @@ namespace vatti
         void set_windcount_closed(edge* e);
         bool is_contributing_closed(edge* e);
         void insert_right_edge(edge* left, edge* right);
+        out_pt* add_local_min_poly(edge* e1, edge* e2, const Point& pt, bool is_new);
+        out_pt* add_out_pt(const edge* e, const Point& pt);
+        void add_join(out_pt* op1, out_pt* op2);
+        void push_horz(edge* e);
 
         clip_type cliptype_ = clip_type::intersection;
         fill_rule fillrule_ = fill_rule::positive;
@@ -126,6 +183,9 @@ namespace vatti
         // 不知道为啥 Clipper 要特意使用 priority_queue，先模仿下
         std::priority_queue<num> scanline_list;
         edge* ael_first = nullptr;
+        edge* sel_ = nullptr;
+        std::vector<out_polygon*> outrec_list_;
+        std::vector<joiner*> joiner_list_;
 
         std::vector<break_info> break_info_list;
     };

@@ -123,6 +123,56 @@ namespace vatti
         return is_maxima(*e->vertex_top);
     }
 
+    inline bool is_hot_edge(const edge* e)
+    {
+        return (e->out_poly);
+    }
+
+    inline edge* get_prev_hot_edge(const edge* e)
+    {
+        edge* prev = e->prev_in_ael;
+        while (prev && (is_open(prev) || !is_hot_edge(prev)))
+            prev = prev->prev_in_ael;
+        return prev;
+    }
+
+    inline bool outpoly_is_ascending(const edge* hotEdge)
+    {
+        return (hotEdge == hotEdge->out_poly->front_edge);
+    }
+
+    inline void set_sides(out_polygon* out_poly, edge* start_edge, edge* end_edge)
+    {
+        out_poly->front_edge = start_edge;
+        out_poly->back_edge = end_edge;
+    }
+
+    inline bool test_join_with_prev1(const edge* e)
+    {
+        //this is marginally quicker than TestJoinWithPrev2
+        //but can only be used when e.PrevInAEL.currX is accurate
+        return is_hot_edge(e) && !is_open(e) &&
+            e->prev_in_ael && e->prev_in_ael->curr_x == e->curr_x &&
+            is_hot_edge(e->prev_in_ael) && !is_open(e->prev_in_ael) &&
+            (cross_product(e->prev_in_ael->top, e->bot, e->top) == 0);
+    }
+
+    inline bool test_join_with_next1(const edge* e)
+    {
+        //this is marginally quicker than TestJoinWithNext2
+        //but can only be used when e.NextInAEL.currX is accurate
+        return is_hot_edge(e) && !is_open(e) &&
+            e->next_in_ael && (e->next_in_ael->curr_x == e->curr_x) &&
+            is_hot_edge(e->next_in_ael) && !is_open(e->next_in_ael) &&
+            (cross_product(e->next_in_ael->top, e->bot, e->top) == 0);
+    }
+
+
+    inline bool is_front(const edge* e)
+    {
+        return (e == e->out_poly->front_edge);
+    }
+
     void clipper::add_path(const Paths& paths, PathType polytype, bool is_open)
     {
         size_t total_vertex_count = 0;
@@ -296,7 +346,7 @@ namespace vatti
             });
 
         for (auto it = local_minima_list.rbegin(); it != local_minima_list.rend(); ++it) {
-            scanline_list.push((*it)->vert->pt.y);
+            insert_scanline((*it)->vert->pt.y);
         }
 
         cur_locmin_it = local_minima_list.begin();
@@ -543,32 +593,33 @@ namespace vatti
 
             if (contributing)
             {
-                AddLocalMinPoly(*left_bound, *right_bound, left_bound->bot, true);
-                if (!IsHorizontal(*left_bound) && TestJoinWithPrev1(*left_bound))
+                add_local_min_poly(left_bound, right_bound, left_bound->bot, true);
+                if (!is_horizontal(*left_bound) && test_join_with_prev1(left_bound))
                 {
-                    OutPt* op = AddOutPt(*left_bound->prev_in_ael, left_bound->bot);
-                    AddJoin(op, left_bound->outrec->pts);
+                    auto op = add_out_pt(left_bound->prev_in_ael, left_bound->bot);
+                    add_join(op, left_bound->out_poly->pts);
                 }
             }
 
             while (right_bound->next_in_ael &&
-                IsValidAelOrder(*right_bound->next_in_ael, *right_bound))
+                is_valid_ael_order(right_bound->next_in_ael, right_bound))
             {
-                IntersectEdges(*right_bound, *right_bound->next_in_ael, right_bound->bot);
-                SwapPositionsInAEL(*right_bound, *right_bound->next_in_ael);
+                // 相交工作早已进行，无需再做
+                //IntersectEdges(*right_bound, *right_bound->next_in_ael, right_bound->bot);
+                //SwapPositionsInAEL(*right_bound, *right_bound->next_in_ael);
             }
 
-            if (!IsHorizontal(*right_bound) &&
-                TestJoinWithNext1(*right_bound))
+            if (!is_horizontal(*right_bound) &&
+                test_join_with_next1(right_bound))
             {
-                OutPt* op = AddOutPt(*right_bound->next_in_ael, right_bound->bot);
-                AddJoin(right_bound->outrec->pts, op);
+                auto op = add_out_pt(right_bound->next_in_ael, right_bound->bot);
+                add_join(right_bound->out_poly->pts, op);
             }
 
-            if (IsHorizontal(*right_bound))
-                PushHorz(*right_bound);
+            if (is_horizontal(*right_bound))
+                push_horz(right_bound);
             else
-                InsertScanline(right_bound->top.y);
+                insert_scanline(right_bound->top.y);
         }
     }
 
@@ -735,6 +786,111 @@ namespace vatti
         case clip_type::Xor: return true;  break;
         }
         return false;  // we should never get here
+    }
+
+    void clipper::add_join(out_pt* op1, out_pt* op2)
+    {
+        if ((op1->outrec == op2->outrec) && ((op1 == op2) ||
+            //unless op1.next or op1.prev crosses the start-end divide
+            //don't waste time trying to join adjacent vertices
+            ((op1->next == op2) && (op1 != op1->outrec->pts)) ||
+            ((op2->next == op1) && (op2 != op1->outrec->pts)))) return;
+
+        joiner* j = new joiner(op1, op2, nullptr);
+        j->idx = static_cast<int>(joiner_list_.size());
+        joiner_list_.push_back(j);
+    }
+
+    void clipper::insert_scanline(num y)
+    {
+        scanline_list.push(y);
+    }
+
+    void clipper::push_horz(edge* e)
+    {
+        e->next_in_sel = (sel_ ? sel_ : nullptr);
+        sel_ = e;
+    }
+
+    out_pt* clipper::add_out_pt(const edge* e, const Point& pt)
+    {
+        out_pt* new_op = nullptr;
+
+        //Outrec.OutPts: a circular doubly-linked-list of POutPt where ...
+        //op_front[.Prev]* ~~~> op_back & op_back == op_front.Next
+        out_polygon* outpoly = e->out_poly;
+        bool to_front = is_front(e);
+        out_pt* op_front = outpoly->pts;
+        out_pt* op_back = op_front->next;
+
+        if (to_front)
+        {
+            if (pt == op_front->pt)
+                return op_front;
+        }
+        else if (pt == op_back->pt)
+            return op_back;
+
+        new_op = new out_pt(pt, outpoly);
+        op_back->prev = new_op;
+        new_op->prev = op_front;
+        new_op->next = op_back;
+        op_front->next = new_op;
+        if (to_front) outpoly->pts = new_op;
+        return new_op;
+    }
+
+    out_pt* clipper::add_local_min_poly(edge* e1, edge* e2, const Point& pt, bool is_new)
+    {
+        out_polygon* outrec = new out_polygon();
+        outrec->idx = (unsigned)outrec_list_.size();
+        outrec_list_.push_back(outrec);
+        outrec->pts = nullptr;
+        //outrec->polypath = nullptr;
+        e1->out_poly = outrec;
+        e2->out_poly = outrec;
+
+        //Setting the owner and inner/outer states (above) is an essential
+        //precursor to setting edge 'sides' (ie left and right sides of output
+        //polygons) and hence the orientation of output paths ...
+
+        if (is_open(e1))
+        {
+            outrec->owner = nullptr;
+            outrec->is_open = true;
+            if (e1->wind_dx > 0)
+                set_sides(outrec, e1, e2);
+            else
+                set_sides(outrec, e2, e1);
+        }
+        else
+        {
+            edge* prevHotEdge = get_prev_hot_edge(e1);
+            //e.windDx is the winding direction of the **input** paths
+            //and unrelated to the winding direction of output polygons.
+            //Output orientation is determined by e.outrec.frontE which is
+            //the ascending edge (see AddLocalMinPoly).
+            if (prevHotEdge)
+            {
+                outrec->owner = prevHotEdge->out_poly;
+                if (outpoly_is_ascending(prevHotEdge) == is_new)
+                    set_sides(outrec, e2, e1);
+                else
+                    set_sides(outrec, e1, e2);
+            }
+            else
+            {
+                outrec->owner = nullptr;
+                if (is_new)
+                    set_sides(outrec, e1, e2);
+                else
+                    set_sides(outrec, e2, e1);
+            }
+        }
+
+        out_pt* op = new out_pt(pt, outrec);
+        outrec->pts = op;
+        return op;
     }
 
     void clipper::insert_right_edge(edge* left, edge* right)
