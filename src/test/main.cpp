@@ -3,7 +3,7 @@
 #include <qline.h>
 #include <qpoint.h>
 
-//#include "clipper2/clipper.h"
+#include "clipper2/clipper.h"
 
 int main(int argc, char** argv)
 {
@@ -57,16 +57,18 @@ int main(int argc, char** argv)
     river.process();
 #endif
 
-    auto p = river::make_path("m 0 0 l 100 100 c 0 70 0 250 100 200 l 0 0");
-    river.add_path(p, PathType::Subject);
+    //auto p = river::make_path("m 0 0 l 100 100 c 0 70 0 250 100 200 l 0 0");
+    auto subject = river::make_path("m 0 10 l 100 0 l 110 20 l 110 80 l 100 100 l 0 90 l 0 10");
+    auto clip = river::make_path("m 50 30 l 110 20 l 150 30 l 150 70 l 110 80 l 50 70 l 50 30");
+    river.add_path(subject, PathType::Subject);
+    river.add_path(clip, PathType::Clip);
     river.process();
 #if 0
     {
         using namespace Clipper2Lib;
         Paths64 subject, clip, solution;
         subject.push_back(MakePath("0, 0, 100, 0, 110, 20, 110, 80, 100, 100, 0, 100"));
-        clip.push_back(MakePath("50, 20, 110, 20, 150, 20, 150, 80, 110, 80, 50, 80"));
-        solution = Intersect(subject, clip, FillRule::Positive);
+        clip.push_back(MakePath("50, 30, 110, 20, 150, 30, 150, 70, 110, 80, 50, 70"));
 
         for (auto& path : subject)
         {
@@ -76,20 +78,24 @@ int main(int argc, char** argv)
                 last = p;
             }
         }
+        QPen blue_pen(Qt::blue);
         for (auto& path : clip)
         {
             auto last = path.back();
             for (auto& p : path) {
-                debug_util::show_line(QLineF(last.x, last.y, p.x, p.y));
+                debug_util::show_line(QLineF(last.x, last.y, p.x, p.y), blue_pen);
                 last = p;
             }
         }
 
+        solution = Intersect(subject, clip, FillRule::Positive);
+
+        QPen redpen(Qt::red);
         for(auto& path:solution)
         {
             auto last = path.back();
             for(auto& p : path){
-                debug_util::show_line(QLineF(last.x,last.y,p.x,p.y ));
+                debug_util::show_line(QLineF(last.x,last.y,p.x,p.y ), redpen);
                 last = p;
             }
         }
