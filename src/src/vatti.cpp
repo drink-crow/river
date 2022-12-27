@@ -115,7 +115,7 @@ namespace vatti
     // 获取Y轴正方向上的下一个点
     inline vertex* next_vertex(const edge* e)
     {
-        if (e->wind_dx > 0)
+        if (e->wind_dx < 0)
             return e->vertex_top->next;
         else
             return e->vertex_top->prev;
@@ -123,7 +123,7 @@ namespace vatti
 
     inline vertex* prev_prev_vertex(const edge* ae)
     {
-        if (ae->wind_dx > 0)
+        if (ae->wind_dx < 0)
             return ae->vertex_top->prev->prev;
         else
             return ae->vertex_top->next->next;
@@ -834,10 +834,9 @@ namespace vatti
 
         // 比较麻烦的是当 curr_x 相同的时候
         
-        // ToDo 首先尝试以cw排序，这里可能要改ccw排序
         // 这时候是相交于 newcomer->bot
         double d = cross_product(resident->top, newcomer->bot, newcomer->top);
-        if (d != 0) return d < 0;
+        if (d != 0) return d > 0;
 
         // 处理更特殊的共线情况
         //edges must be collinear to get here
