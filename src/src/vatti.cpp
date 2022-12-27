@@ -93,7 +93,7 @@ namespace vatti
     /***************************************************
     *  Dx:                    0(90deg)                 *
     *                         |                        *
-    *      +inf (180deg) <--- o ---> -inf (0deg)       *
+    *      -inf (180deg) <--- o ---> +inf (0deg)       *
     ***************************************************/
     inline double get_direct(const Point& pt1, const Point& pt2)
     {
@@ -101,9 +101,9 @@ namespace vatti
         if (dy != 0)
             return double(pt2.x - pt1.x) / dy;
         else if (pt2.x > pt1.x)
-            return -std::numeric_limits<double>::max();
-        else
             return std::numeric_limits<double>::max();
+        else
+            return -std::numeric_limits<double>::max();
     }
 
     // ToDo 对于曲线内容行不通
@@ -504,6 +504,8 @@ namespace vatti
             //if (horz_joiners_) ConvertHorzTrialsToJoins();
             bot_y_ = y;  // bot_y_ == bottom of scanbeam
             if (!pop_scanline(y)) break;  // y new top of scanbeam
+            /* 由于intersect已经提前处理了，因此只需要在添加 local minima 和 
+            DoTopOfScanbeam() 时处理端点的相交就 可以了*/
             //DoIntersections(y);
             DoTopOfScanbeam(y);
             while (pop_horz(&e)) do_horizontal(e);
@@ -692,7 +694,7 @@ namespace vatti
             left_bound->curr_x = left_bound->bot.x;
             left_bound->wind_cnt = 0,
                 left_bound->wind_cnt2 = 0,
-                left_bound->wind_dx = -1,
+                left_bound->wind_dx = 1,
                 left_bound->vertex_top = lmin->vert->prev;  // ie descending
             left_bound->top = left_bound->vertex_top->pt;
             left_bound->out_poly = nullptr;
@@ -704,7 +706,7 @@ namespace vatti
             right_bound->curr_x = right_bound->bot.x;
             right_bound->wind_cnt = 0,
                 right_bound->wind_cnt2 = 0,
-                right_bound->wind_dx = 1,
+                right_bound->wind_dx = -1,
                 right_bound->vertex_top = lmin->vert->next;  // ie ascending
             right_bound->top = right_bound->vertex_top->pt;
             right_bound->out_poly = nullptr;
@@ -713,16 +715,16 @@ namespace vatti
 
             // 水平线的放置位置规则是由将水平线当成略微倾斜的线来处理的方法延申出来的
             // ToDo 这里应该要改改，因为 Clipper 本身是自上到下的。
-            if (is_horizontal(*left_bound))
+            if (is_horizontal(left_bound))
             {
                 if (horz_is_heading_right(*left_bound)) swap_edge(&left_bound, &right_bound);
             }
-            else if (is_horizontal(*right_bound))
+            else if (is_horizontal(right_bound))
             {
                 if (horz_is_heading_left(*right_bound)) swap_edge(&left_bound, &right_bound);
             }
             // ToDo 这里判断不足以应对曲线内容
-            else if (left_bound->dx < right_bound->dx)
+            else if (left_bound->dx > right_bound->dx)
                 swap_edge(&left_bound, &right_bound);
 
             // 开始处理 left_bound
@@ -730,6 +732,7 @@ namespace vatti
             left_bound->is_left_bound = true;
             insert_left_edge(left_bound);
 
+            // 计算只用到左边的 windcount 所以右边没插入ael时也可以
             set_windcount_closed(left_bound);
             contributing = is_contributing_closed(left_bound);
 
@@ -750,12 +753,15 @@ namespace vatti
                 }
             }
 
+            /* right_bound是直接插入到left_bound的后面的，在bot还有其他边的时候有可
+             * 能顺序不对，这种情况则要逐一做intersect处理和交换顺序，直到 ael 的顺
+             * 序是对的
+            */
             while (right_bound->next_in_ael &&
                 is_valid_ael_order(right_bound->next_in_ael, right_bound))
             {
-                // 相交工作早已进行，无需再做
-                //IntersectEdges(*right_bound, *right_bound->next_in_ael, right_bound->bot);
-                //SwapPositionsInAEL(*right_bound, *right_bound->next_in_ael);
+                intersect_edges(right_bound, right_bound->next_in_ael, right_bound->bot);
+                SwapPositionsInAEL(right_bound, right_bound->next_in_ael);
             }
 
             if (!is_horizontal(*right_bound) &&
@@ -769,6 +775,11 @@ namespace vatti
                 push_horz(right_bound);
             else
                 insert_scanline(right_bound->top.y);
+
+            if (is_horizontal(*left_bound))
+                push_horz(left_bound);
+            else
+                insert_scanline(left_bound->top.y);
         }
     }
 
@@ -1499,6 +1510,11 @@ namespace vatti
         }
     }
 
+    void clipper::DoIntersections(const num y)
+    {
+
+    }
+
     void clipper::CleanCollinear(out_polygon* output)
     {
     }
@@ -1659,7 +1675,7 @@ namespace vatti
         else
             ael_first = next;
         if (next) next->prev_in_ael = prev;
-        delete& e;
+        delete e;
     }
 
     //preconditon: e1 must be immediately to the left of e2

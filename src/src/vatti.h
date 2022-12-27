@@ -177,6 +177,7 @@ namespace vatti
         void push_horz(edge* e);
         bool pop_horz(edge** e);
         void do_horizontal(edge* e);
+        void DoIntersections(const num y);
         bool reset_horz_direction(const edge* horz, const edge* max_pair,
             num& horz_left, num& horz_right);
         void update_edge_into_ael(edge* e);
@@ -197,7 +198,7 @@ namespace vatti
         std::vector<local_minima*> local_minima_list;
         std::vector<local_minima*>::iterator cur_locmin_it;
         // 不知道为啥 Clipper 要特意使用 priority_queue，先模仿下
-        std::priority_queue<num> scanline_list;
+        std::priority_queue<num,std::vector<num>,std::greater<num>> scanline_list;
         edge* ael_first = nullptr;
         edge* sel_first = nullptr;
         std::vector<out_polygon*> outrec_list_;
