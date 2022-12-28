@@ -57,18 +57,25 @@ int main(int argc, char** argv)
     river.process();
 #endif
 
+#if 0
     //auto p = river::make_path("m 0 0 l 100 100 c 0 70 0 250 100 200 l 0 0");
     auto subject = river::make_path("m 0 10 l 100 0 l 110 20 l 110 80 l 100 100 l 0 90 l 0 10");
     auto clip = river::make_path("m 50 30 l 110 20 l 150 30 l 150 70 l 110 80 l 50 70 l 50 30");
     river.add_path(subject, PathType::Subject);
     river.add_path(clip, PathType::Clip);
     river.process();
-#if 0
+#endif
+
+#if 1
     {
         using namespace Clipper2Lib;
         Paths64 subject, clip, solution;
-        subject.push_back(MakePath("0, 0, 100, 0, 110, 20, 110, 80, 100, 100, 0, 100"));
-        clip.push_back(MakePath("50, 30, 110, 20, 150, 30, 150, 70, 110, 80, 50, 70"));
+        //subject.push_back(MakePath("0, 0, 100, 0, 110, 20, 110, 80, 100, 100, 0, 100"));
+        //clip.push_back(MakePath("50, 30, 110, 20, 150, 30, 150, 70, 110, 80, 50, 70"));
+
+        subject.push_back(MakePath("0, 50, 50, 0, 100, 50, 50, 100"));
+        clip.push_back(MakePath("100, 50, 90, 40, 90, 30, 100, 20, 120, 90, 60, 150, 30, 120"));
+        //clip.push_back(MakePath("10, 60, 40, 90, 10, 120, -20, 90"));
 
         for (auto& path : subject)
         {
@@ -88,7 +95,7 @@ int main(int argc, char** argv)
             }
         }
 
-        solution = Intersect(subject, clip, FillRule::Positive);
+        solution = Union(subject, clip, FillRule::Positive);
 
         QPen redpen(Qt::red);
         for(auto& path:solution)

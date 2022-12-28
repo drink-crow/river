@@ -165,14 +165,18 @@ namespace vatti
         out_poly->back_edge = end_edge;
     }
 
+    // 测试和 e->prev_in_ael 是否共线，且均是hot_edge，这意味着可以合并，多数出现在
+    // 两个输出轮廓相接
+    // ToDo 不适合曲线内容
     inline bool test_join_with_prev1(const edge* e)
     {
         //this is marginally quicker than TestJoinWithPrev2
         //but can only be used when e.PrevInAEL.currX is accurate
+        auto prev = e->prev_in_ael;
         return is_hot_edge(e) && !is_open(e) &&
-            e->prev_in_ael && e->prev_in_ael->curr_x == e->curr_x &&
-            is_hot_edge(e->prev_in_ael) && !is_open(e->prev_in_ael) &&
-            (cross_product(e->prev_in_ael->top, e->bot, e->top) == 0);
+            prev && prev->curr_x == e->curr_x &&
+            is_hot_edge(prev) && !is_open(prev) &&
+            (cross_product(prev->top, e->bot, e->top) == 0);
     }
 
     inline bool test_join_with_next1(const edge* e)
@@ -1743,7 +1747,7 @@ namespace vatti
         return result;
     }
 
-    out_pt* clipper::add_out_pt(const edge* e, const Point& pt)
+    out_pt* clipper::add_out_pt(const edge* e, const Point& pt, out_seg* seg_data)
     {
         out_pt* new_op = nullptr;
 
@@ -1763,8 +1767,12 @@ namespace vatti
         else if (pt == op_back->pt)
             return op_back;
 
-        // insert new_op between op_front -> op_back
+        /*        new_op
+        *           |
+        *           V
+        * op_front --> op_back     */
         new_op = new out_pt(pt, outpoly);
+        new_op->next_data = seg_data;
         op_back->prev = new_op;
         new_op->prev = op_front;
         new_op->next = op_back;

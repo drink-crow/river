@@ -70,10 +70,16 @@ namespace vatti
         }
     };
 
+    struct out_seg {
+        SegType type = SegType::MoveTo;
+        void* data = nullptr;
+    };
+
     struct out_pt {
         Point pt;
         out_pt* next = nullptr;
         out_pt* prev = nullptr;
+        out_seg* next_data = nullptr;
         out_polygon* outrec;
         joiner* joiner = nullptr;
 
@@ -81,6 +87,11 @@ namespace vatti
             next = this;
             prev = this;
         }
+    };
+
+    struct cubic_data {
+        Point ctrl1;
+        Point ctrl2;
     };
 
     struct out_polygon
@@ -172,7 +183,7 @@ namespace vatti
         void insert_right_edge(edge* left, edge* right);
         out_pt* add_local_min_poly(edge* e1, edge* e2, const Point& pt, bool is_new = false);
         out_pt* add_local_max_poly(edge* e1, edge* e2, const Point& pt);
-        out_pt* add_out_pt(const edge* e, const Point& pt);
+        out_pt* add_out_pt(const edge* e, const Point& pt, out_seg* seg_data = nullptr);
         void add_join(out_pt* op1, out_pt* op2);
         void push_horz(edge* e);
         bool pop_horz(edge** e);
@@ -203,6 +214,9 @@ namespace vatti
         edge* sel_first = nullptr;
         std::vector<out_polygon*> outrec_list_;
         std::vector<joiner*> joiner_list_;
+        //boost::pool<out_seg> seg_pool;
+        //boost::pool<double> seg_data_pool;
+
         bool PreserveCollinear = false;
         bool succeeded_ = true;
         num bot_y_;
