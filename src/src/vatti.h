@@ -81,7 +81,6 @@ namespace vatti
         out_pt* prev = nullptr;
         out_seg* next_data = nullptr;
         out_polygon* outrec;
-        joiner* joiner = nullptr;
 
         out_pt(const Point& pt_, out_polygon* outrec_) : pt(pt_), outrec(outrec_) {
             next = this;
@@ -101,6 +100,13 @@ namespace vatti
 
         edge* front_edge = nullptr;
         edge* back_edge = nullptr;
+
+        edge* left_bound = nullptr;
+        Point left_stop_pt;
+        edge* right_bound = nullptr;
+        Point right_stop_pt;
+
+
         out_pt* pts = nullptr;
 
         bool is_open = false;
@@ -132,32 +138,6 @@ namespace vatti
         bool is_left_bound = false;
     };
 
-    struct joiner
-    {
-        int      idx;
-        out_pt* op1;
-        out_pt* op2;
-        joiner* next1;
-        joiner* next2;
-        joiner* nextH;
-
-        explicit joiner(out_pt* op1_, out_pt* op2_, joiner* nexth) :
-            op1(op1_), op2(op2_), nextH(nexth)
-        {
-            idx = -1;
-            next1 = op1->joiner;
-            op1->joiner = this;
-
-            if (op2)
-            {
-                next2 = op2->joiner;
-                op2->joiner = this;
-            }
-            else
-                next2 = nullptr;
-        }
-    };
-
     class clipper
     {
     public:
@@ -170,34 +150,14 @@ namespace vatti
     private:
         vertex* new_vertex();
         void set_segment(vertex* prev, vertex* mem, Seg* move_seg);
-        void add_local_min(vertex* vert, PathType, bool is_open);
+        void add_local_min(vertex* vert, PathType pt, bool is_open);
+        void reset();
         void insert_scanline(num y);
         bool pop_scanline(num& y);
+        bool pop_local_minima(num y, local_minima** out);
         void insert_local_minima_to_ael(num y);
-        out_pt* intersect_edges(edge* e1, edge* e2, const Point& pt);
-        bool pop_local_minima(num y, local_minima**);
-        void insert_left_edge(edge* e);
-        bool is_valid_ael_order(const edge* resident, const edge* newcomer);
         void set_windcount_closed(edge* e);
-        bool is_contributing_closed(edge* e);
-        void insert_right_edge(edge* left, edge* right);
-        out_pt* add_local_min_poly(edge* e1, edge* e2, const Point& pt, bool is_new = false);
-        out_pt* add_local_max_poly(edge* e1, edge* e2, const Point& pt);
-        out_pt* add_out_pt(const edge* e, const Point& pt, out_seg* seg_data = nullptr);
-        void add_join(out_pt* op1, out_pt* op2);
-        void push_horz(edge* e);
-        bool pop_horz(edge** e);
-        void do_horizontal(edge* e);
-        void DoIntersections(const num y);
-        bool reset_horz_direction(const edge* horz, const edge* max_pair,
-            num& horz_left, num& horz_right);
-        void update_edge_into_ael(edge* e);
-        void CleanCollinear(out_polygon* output);
-        void JoinOutrecPaths(edge* dest, edge* src);
-        void DoTopOfScanbeam(num y);
-        edge* DoMaxima(edge* e);
-        void SwapPositionsInAEL(edge* e1, edge* e2);
-        void DeleteFromAEL(edge* e);
+        void do_top_of_scanbeam(num y);
 
         clip_type cliptype_ = clip_type::intersection;
         fill_rule fillrule_ = fill_rule::positive;
@@ -206,22 +166,17 @@ namespace vatti
         // 使用 object_pool 提高内存申请的效率和放置内存泄露
         boost::object_pool<vertex> vertex_pool;
         std::vector<vertex*> paths_start;
+        std::vector<break_info> break_info_list;
         std::vector<local_minima*> local_minima_list;
         std::vector<local_minima*>::iterator cur_locmin_it;
-        // 不知道为啥 Clipper 要特意使用 priority_queue，先模仿下
         std::priority_queue<num,std::vector<num>,std::greater<num>> scanline_list;
         edge* ael_first = nullptr;
-        edge* sel_first = nullptr;
-        std::vector<out_polygon*> outrec_list_;
-        std::vector<joiner*> joiner_list_;
+
         //boost::pool<out_seg> seg_pool;
         //boost::pool<double> seg_data_pool;
 
-        bool PreserveCollinear = false;
         bool succeeded_ = true;
-        num bot_y_;
 
-        std::vector<break_info> break_info_list;
     };
 }
 
