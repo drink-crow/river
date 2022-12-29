@@ -55,6 +55,34 @@ namespace vatti
         local_minima_list.push_back(new local_minima(vert, pt, is_open));
     }
 
+    /*         0
+             pi/2
+               |       
+     -inf pi---O---0  +inf*/
+    num get_direction(const Point& top, const Point& bot) {
+        double dy = double(top.y - bot.y);
+        if (dy != 0)
+            return (top.x - bot.x) / dy;
+        else if (top.x > bot.x)
+            return std::numeric_limits<num>::max();
+        else
+            return -std::numeric_limits<num>::max();
+    }
+
+    void set_direction(edge* e) {
+        e->dx = get_direction(e->top, e->bot);
+    }
+
+    void swap_edge(edge** l, edge** r) {
+        edge* tmp = *l;
+        *l = *r;
+        *r = tmp;
+    }
+
+    inline PathType get_polytype(const edge* e) {
+        return e->local_min->polytype;
+    }
+
     void clipper::reset()
     {
         // build init scan line list
@@ -245,6 +273,7 @@ namespace vatti
             insert_local_minima_to_ael(y);
             //edge* e;
             //while (pop_horz(&e)) do_horizontal(e);
+            recalc_windcnt();
             if (!pop_scanline(y)) break;  // y new top of scanbeam
             do_top_of_scanbeam(y);
             //while (pop_horz(&e)) do_horizontal(e);
@@ -427,24 +456,155 @@ namespace vatti
 
         while (pop_local_minima(y, &local_minima))
         {
-            left_bound = new Active();
-            left_bound->bot = local_minima->vertex->pt;
+            left_bound = new edge();
+            left_bound->bot = local_minima->vert->pt;
             left_bound->curr_x = left_bound->bot.x;
             left_bound->wind_dx = -1;
-            left_bound->vertex_top = local_minima->vertex->prev;  // ie descending
+            left_bound->wind_dx_all = left_bound->wind_dx;
+            left_bound->vertex_top = local_minima->vert->prev;  // ie descending
             left_bound->top = left_bound->vertex_top->pt;
             left_bound->local_min = local_minima;
-            SetDx(*left_bound);
+            set_direction(left_bound);
 
-            right_bound = new Active();
-            right_bound->bot = local_minima->vertex->pt;
+            right_bound = new edge();
+            right_bound->bot = local_minima->vert->pt;
             right_bound->curr_x = right_bound->bot.x;
             right_bound->wind_dx = 1;
-            right_bound->vertex_top = local_minima->vertex->next;  // ie ascending
+            right_bound->wind_dx_all = right_bound->wind_dx;
+            right_bound->vertex_top = local_minima->vert->next;  // ie ascending
             right_bound->top = right_bound->vertex_top->pt;
             right_bound->local_min = local_minima;
-            SetDx(*right_bound);
+            set_direction(right_bound);
+
+            if (left_bound->dx > right_bound->dx) {
+                swap_edge(&left_bound, &right_bound);
+            }
+
+            left_bound->is_left_bound = true;
+            right_bound->is_left_bound = false;
+
+            insert_into_ael(left_bound);
+            insert_into_ael(left_bound, right_bound);
+
+            push_windcnt_change(left_bound->bot.x);
         }
+    }
+
+    void clipper::recalc_windcnt()
+    {
+        std::sort(windcnt_change_list.begin(), windcnt_change_list.end());
+        windcnt_change_list.erase(std::unique(windcnt_change_list.begin(), windcnt_change_list.end()), windcnt_change_list.end());
+
+        auto curr_e = ael_first;
+        for (auto x : windcnt_change_list)
+        {
+            while (curr_e) {
+                if (curr_e->curr_x != x) {
+                    curr_e = curr_e->next_in_ael;
+                    continue;
+                }
+
+                 curr_e = calc_windcnt(curr_e);
+            }
+        }
+
+        windcnt_change_list.clear();
+    }
+
+    edge* clipper::calc_windcnt(edge* curr_e)
+    {
+        edge* left = curr_e->prev_in_ael;
+        PathType pt = get_polytype(curr_e);
+        while (left && (get_polytype(left) != pt || is_open(left))) left = left->prev_in_ael;
+
+        // 获取所有 curr_e 后面 is_same_with_prev 的 wind_dx 的集合
+        int wind_dx = curr_e->wind_dx;
+        {
+            edge* next = curr_e->next_in_ael;
+            while (next && next->is_same_with_prev) {
+                wind_dx += next->wind_dx;
+                next = next->next_in_ael;
+            }
+            curr_e->wind_dx_all = wind_dx;
+        }
+
+        if (!left) {
+            curr_e->wind_cnt = wind_dx;
+            left = ael_first;
+        }
+        else if (fillrule_ == fill_rule::even_odd) {
+            curr_e->wind_cnt = curr_e->wind_dx_all;
+            curr_e->wind_cnt2 = left->wind_cnt2;
+            left = left->next_in_ael;
+        }
+        else {
+            //NonZero, positive, or negative filling here ...
+            //if e's WindCnt is in the SAME direction as its WindDx, then polygon
+            //filling will be on the right of 'e'.
+            //NB neither e2.WindCnt nor e2.WindDx should ever be 0.
+            if (left->wind_cnt * left->wind_dx_all < 0)
+            {
+                //opposite directions so 'e' is outside 'left' ...
+                if (abs(left->wind_cnt) > 1)
+                {
+                    //outside prev poly but still inside another.
+                    if (left->wind_dx_all * curr_e->wind_dx_all < 0)
+                        //reversing direction so use the same WC
+                        curr_e->wind_cnt = left->wind_cnt;
+                    else
+                        //otherwise keep 'reducing' the WC by 1 (ie towards 0) ...
+                        curr_e->wind_cnt = left->wind_cnt + curr_e->wind_dx_all;
+                }
+                else
+                    //now outside all polys of same polytype so set own WC ...
+                    curr_e->wind_cnt = (is_open(curr_e) ? 1 : curr_e->wind_dx_all);
+            }
+            else
+            {
+                //'e' must be inside 'left'
+                if (left->wind_dx_all * curr_e->wind_dx_all < 0)
+                    //reversing direction so use the same WC
+                    curr_e->wind_cnt = left->wind_cnt;
+                else
+                    //otherwise keep 'increasing' the WC by 1 (ie away from 0) ...
+                    curr_e->wind_cnt = left->wind_cnt + curr_e->wind_dx_all;
+            }
+            curr_e->wind_cnt2 = left->wind_cnt2;
+            left = left->next_in_ael;  // ie get ready to calc WindCnt2
+        }
+
+        //update wind_cnt2 ...
+        if (fillrule_ == fill_rule::even_odd)
+            while (left != curr_e)
+            {
+                if (get_polytype(left) != pt && !is_open(left))
+                    curr_e->wind_cnt2 = (curr_e->wind_cnt2 == 0 ? 1 : 0);
+                left = left->next_in_ael;
+            }
+        else
+            while (left != curr_e)
+            {
+                if (get_polytype(left) != pt && !is_open(left))
+                    curr_e->wind_cnt2 += left->wind_dx_all;
+                left = left->next_in_ael;
+            }
+
+        {
+            edge* next = curr_e->next_in_ael;
+            while (next && next->is_same_with_prev) {
+                {
+                    next->wind_dx_all = curr_e->wind_dx_all;
+                    next->wind_cnt = curr_e->wind_cnt;
+                    next->wind_cnt2 = curr_e->wind_cnt2;
+                }
+            }
+            curr_e->wind_dx_all = wind_dx;
+        }
+
+        curr_e = curr_e->next_in_ael;
+        if (curr_e && curr_e->is_same_with_prev) curr_e = curr_e->next_in_ael;
+
+        return curr_e;
     }
 
     bool clipper::pop_local_minima(num y, local_minima** out)
@@ -453,6 +613,64 @@ namespace vatti
         *out = (*cur_locmin_it);
         ++cur_locmin_it;
         return true;
+    }
+
+    void clipper::push_windcnt_change(num x)
+    {
+        windcnt_change_list.push_back(x);
+    }
+
+    void clipper::insert_into_ael(edge* newcomer)
+    {
+        if (!ael_first) {
+            // newcomer being ael_first
+            ael_first = newcomer;
+            newcomer->prev_in_ael = nullptr;
+            newcomer->next_in_ael = nullptr;
+        }
+        else if (!is_valid_ael_order(ael_first, newcomer))
+        {
+            // swap ael_first、newcomer position in ael
+            newcomer->prev_in_ael = nullptr;
+            newcomer->next_in_ael = ael_first;
+            ael_first->prev_in_ael = newcomer;
+            ael_first->next_in_ael = nullptr;
+        }
+        else {
+            // find last position can insert
+            insert_into_ael(ael_first, newcomer);
+        }
+    }
+
+    void clipper::insert_into_ael(edge* left, edge* newcomer)
+    {
+        if (left == nullptr) return insert_into_ael(newcomer);
+
+        edge* resident = left;
+        edge* next = resident->next_in_ael;
+        while (next && is_valid_ael_order(next, newcomer))
+        {
+            resident = resident->next_in_ael;
+            next = next->next_in_ael;
+        }
+        newcomer->next_in_ael = next;
+        if (next) next->prev_in_ael = newcomer;
+        newcomer->prev_in_ael = resident;
+        resident->next_in_ael = newcomer;
+    }
+
+    bool clipper::is_valid_ael_order(const edge* resident, const edge* newcomer) const
+    {
+        if (newcomer->curr_x != resident->curr_x)
+            return newcomer->curr_x > resident->curr_x;
+
+        // 永远只有端点相交的情况，top 也永远位于 top 上方
+        // 同一点排序，以点为原点，9点钟方向，顺时针排序
+        // Subject 在 clip 前面
+        // ToDo 还要考虑端点相交，但是是曲线的情况
+        if (resident->dx != newcomer->dx)
+            return resident->dx < newcomer->dx;
+        return get_polytype(resident) < get_polytype(newcomer);
     }
 
     void clipper::insert_scanline(num y)

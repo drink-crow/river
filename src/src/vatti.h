@@ -120,22 +120,19 @@ namespace vatti
         // ToDo 单 double 不足以表示曲线内容走向和斜率
         double dx = 0.;
         int wind_dx = 1; //1 or -1 depending on winding direction
+        int wind_dx_all = 1;
         int wind_cnt = 0;
-        int wind_cnt2 = 0;		//winding count of the opposite polytype
+        int wind_cnt2 = 0; //winding count of the opposite polytype
+
         out_polygon* out_poly = nullptr;
 
         edge* prev_in_ael = nullptr;
         edge* next_in_ael = nullptr;
-        //SEL: 'sorted edge list' (Vatti's ST - sorted table)
-        //     linked list used when sorting edges into their new positions at the
-        //     top of scanbeams, but also (re)used to process horizontals.
-        edge* prev_in_sel = nullptr;
-        edge* next_in_sel = nullptr;
-        edge* jump = nullptr;
         vertex* vertex_top = nullptr;
         local_minima* local_min = nullptr;
 
         bool is_left_bound = false;
+        bool is_same_with_prev = false;
     };
 
     class clipper
@@ -156,6 +153,12 @@ namespace vatti
         bool pop_scanline(num& y);
         bool pop_local_minima(num y, local_minima** out);
         void insert_local_minima_to_ael(num y);
+        void recalc_windcnt();
+        edge* calc_windcnt(edge* e);
+        void insert_into_ael(edge* newcomer);
+        void insert_into_ael(edge* left, edge* newcomer);
+        bool is_valid_ael_order(const edge* resident, const edge* newcomer) const;
+        void push_windcnt_change(num x);
         void set_windcount_closed(edge* e);
         void do_top_of_scanbeam(num y);
 
@@ -171,6 +174,7 @@ namespace vatti
         std::vector<local_minima*>::iterator cur_locmin_it;
         std::priority_queue<num,std::vector<num>,std::greater<num>> scanline_list;
         edge* ael_first = nullptr;
+        std::vector<num> windcnt_change_list;
 
         //boost::pool<out_seg> seg_pool;
         //boost::pool<double> seg_data_pool;

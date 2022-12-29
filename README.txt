@@ -25,8 +25,9 @@ while(true)
 {
     insert_local_minima(y)
         local minima 的左右两条边都需要插入到 ael 正确的位置，ael 以 curr_x 排序，相同 ael 时，顺时针排序（从左到右），完全相同的需要标注出来，还需要注意兼容曲线内容
-        当前扫描线有的 local minima 处理完后更新所有 ae 的 wind_cnt, wind_cnt2。
-        然后根据 cliptype 和 fill rule 还有 pathtype 等识别出新的需要输出的区域的左右轮廓
+        标记环绕数受到影响的点位
+    根据标记的点位重新计算受到影响的 wind_cnt、wind_cnt2
+    然后根据 cliptype 和 fill rule 还有 pathtype 等识别出新的需要输出的区域的左右轮廓
     pop_scanline(y)
     do_top_of_scanbeam(y)
         从左到右遍历 ael：
@@ -39,4 +40,5 @@ while(true)
                     continue;
                 现在 ae 和别的线（不考虑自身的下一条线）相交了，会对 out_path 接下来的走向产生影响
                 标记需要重算的点位，因为接下来的有可能发生 intersection 和点位
+                如果该 ae 和输出有关系，则代表输出的区域对应的一侧失去了 ae，需要在下一轮选择新的边界或者和另一侧的合并
 }
