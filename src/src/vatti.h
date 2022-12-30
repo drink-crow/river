@@ -30,7 +30,7 @@ namespace vatti
     struct edge;
     struct out_pt;
     struct out_polygon;
-    struct joiner;
+    struct out_bound;
 
     struct vertex
     {
@@ -101,15 +101,20 @@ namespace vatti
         edge* front_edge = nullptr;
         edge* back_edge = nullptr;
 
-        edge* left_bound = nullptr;
-        Point left_stop_pt;
-        edge* right_bound = nullptr;
-        Point right_stop_pt;
-
+        out_bound* left_bound = nullptr;
+        out_bound* right_bound = nullptr;
 
         out_pt* pts = nullptr;
 
         bool is_open = false;
+    };
+
+    struct out_bound
+    {
+        out_polygon* owner = nullptr;
+        edge* curr_e = nullptr;
+        num stop_x;
+        bool is_cloesd = false;
     };
 
     struct edge
@@ -121,17 +126,22 @@ namespace vatti
         double dx = 0.;
         int wind_dx = 1; //1 or -1 depending on winding direction
         int wind_dx_all = 1;
-        int wind_cnt = 0;
+        int wind_cnt = 0; // 表示环绕方向左边区域的环绕数
         int wind_cnt2 = 0; //winding count of the opposite polytype
 
         out_polygon* out_poly = nullptr;
 
         edge* prev_in_ael = nullptr;
         edge* next_in_ael = nullptr;
+
+        edge* prev_in_obl = nullptr;
+        edge* next_in_obl = nullptr;
+
         vertex* vertex_top = nullptr;
         local_minima* local_min = nullptr;
 
         bool is_left_bound = false;
+        // 形状和前一条 ael 中的 edge 完全相同，无论 path_type
         bool is_same_with_prev = false;
     };
 
@@ -154,6 +164,8 @@ namespace vatti
         bool pop_local_minima(num y, local_minima** out);
         void insert_local_minima_to_ael(num y);
         void recalc_windcnt();
+        void update_ouput_bound();
+        bool is_contributing(edge* e);
         edge* calc_windcnt(edge* e);
         void insert_into_ael(edge* newcomer);
         void insert_into_ael(edge* left, edge* newcomer);
@@ -161,6 +173,7 @@ namespace vatti
         void push_windcnt_change(num x);
         void set_windcount_closed(edge* e);
         void do_top_of_scanbeam(num y);
+        void close_output();
 
         clip_type cliptype_ = clip_type::intersection;
         fill_rule fillrule_ = fill_rule::positive;
@@ -174,6 +187,7 @@ namespace vatti
         std::vector<local_minima*>::iterator cur_locmin_it;
         std::priority_queue<num,std::vector<num>,std::greater<num>> scanline_list;
         edge* ael_first = nullptr;
+        edge* obl_first;
         std::vector<num> windcnt_change_list;
 
         //boost::pool<out_seg> seg_pool;

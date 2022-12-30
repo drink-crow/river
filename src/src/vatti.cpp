@@ -39,8 +39,7 @@ namespace vatti
         return p.data.size() > 1;
     }
 
-    inline PathType get_poly_type(const edge* e)
-    {
+    inline PathType get_polytype(const edge* e) {
         return e->local_min->polytype;
     }
 
@@ -77,10 +76,6 @@ namespace vatti
         edge* tmp = *l;
         *l = *r;
         *r = tmp;
-    }
-
-    inline PathType get_polytype(const edge* e) {
-        return e->local_min->polytype;
     }
 
     void clipper::reset()
@@ -274,8 +269,10 @@ namespace vatti
             //edge* e;
             //while (pop_horz(&e)) do_horizontal(e);
             recalc_windcnt();
+            update_ouput_bound();
             if (!pop_scanline(y)) break;  // y new top of scanbeam
             do_top_of_scanbeam(y);
+            close_output();
             //while (pop_horz(&e)) do_horizontal(e);
         }
     }
@@ -507,8 +504,6 @@ namespace vatti
                  curr_e = calc_windcnt(curr_e);
             }
         }
-
-        windcnt_change_list.clear();
     }
 
     edge* clipper::calc_windcnt(edge* curr_e)
@@ -521,7 +516,7 @@ namespace vatti
         int wind_dx = curr_e->wind_dx;
         {
             edge* next = curr_e->next_in_ael;
-            while (next && next->is_same_with_prev) {
+            while (next && next->is_same_with_prev && get_polytype(next) == pt) {
                 wind_dx += next->wind_dx;
                 next = next->next_in_ael;
             }
@@ -574,6 +569,7 @@ namespace vatti
         }
 
         //update wind_cnt2 ...
+        // ToDo 这里还要计算不同 path_type 重合的边
         if (fillrule_ == fill_rule::even_odd)
             while (left != curr_e)
             {
@@ -591,7 +587,7 @@ namespace vatti
 
         {
             edge* next = curr_e->next_in_ael;
-            while (next && next->is_same_with_prev) {
+            while (next && next->is_same_with_prev && get_polytype(next) == pt) {
                 {
                     next->wind_dx_all = curr_e->wind_dx_all;
                     next->wind_cnt = curr_e->wind_cnt;
@@ -605,6 +601,126 @@ namespace vatti
         if (curr_e && curr_e->is_same_with_prev) curr_e = curr_e->next_in_ael;
 
         return curr_e;
+    }
+
+    void clipper::update_ouput_bound()
+    {
+        if (windcnt_change_list.empty()) return;
+        windcnt_change_list.clear();
+
+        std::vector<edge*> bound_edge;
+        auto e = ael_first;
+        while (e) {
+            bool contributing = is_contributing(e);
+
+            if (contributing) {
+                bound_edge.push_back(e);
+            }
+
+            e = e->next_in_ael;
+            while (e && e->is_same_with_prev) {
+                e = e->next_in_ael;
+            }         
+        }
+
+        // ToDo 需要注意已经在 obl 中的 bound_edge
+
+        // 下部早已合并，现在来合并上部可以合并的
+
+
+        // 新的输出轮廓和旧的相连
+
+
+        //struct union_data {
+        //    out_bound* bound = nullptr;
+        //    edge* bound_edge = nullptr;
+        //};
+
+        // 此时必定没有可以相连接的 out_bound, 也没有可以相连接组成闭合区域的 bound_edge
+        // 只剩下可以上下相连的 out_bound 和 edge，按顺序两两相连即可
+        if(obl_first)
+        {
+            size_t upi = 0;
+            auto down_l = obl_first;
+            auto down_l = obl_first->next_in_obl;
+            {
+                auto up_l = bound_edge[upi];
+                auto up_r = bound_edge[upi + 1];
+                auto down_l = bound_edge[upi];
+            }
+        }
+
+        // 解散旧的 obl，构造新的 obl
+    }
+
+    bool clipper::is_contributing(edge* e)
+    {
+        switch (fillrule_)
+        {
+        case fill_rule::even_odd:
+            break;
+        case fill_rule::non_zero:
+            if (abs(e->wind_cnt) != 1) return false;
+            break;
+        case fill_rule::positive:
+            if (e->wind_cnt != 1) return false;
+            break;
+        case fill_rule::negative:
+            if (e->wind_cnt != -1) return false;
+            break;
+        }
+
+        switch (cliptype_)
+        {
+        case clip_type::none:
+            return false;
+        case clip_type::intersection:
+            switch (fillrule_)
+            {
+            case fill_rule::positive:
+                return (e->wind_cnt2 > 0);
+            case fill_rule::negative:
+                return (e->wind_cnt2 < 0);
+            default:
+                return (e->wind_cnt2 != 0);
+            }
+            break;
+
+        case clip_type::union_:
+            switch (fillrule_)
+            {
+            case fill_rule::positive:
+                return (e->wind_cnt2 <= 0);
+            case fill_rule::negative:
+                return (e->wind_cnt2 >= 0);
+            default:
+                return (e->wind_cnt2 == 0);
+            }
+            break;
+
+        case clip_type::difference:
+            bool result;
+            switch (fillrule_)
+            {
+            case fill_rule::positive:
+                result = (e->wind_cnt2 <= 0);
+                break;
+            case fill_rule::negative:
+                result = (e->wind_cnt2 >= 0);
+                break;
+            default:
+                result = (e->wind_cnt2 == 0);
+            }
+            if (get_polytype(e) == PathType::Subject)
+                return result;
+            else
+                return !result;
+            break;
+
+        case clip_type::xor_: return true;  break;
+        }
+
+        return false;
     }
 
     bool clipper::pop_local_minima(num y, local_minima** out)
@@ -683,14 +799,47 @@ namespace vatti
         
     }
 
+    void clipper::close_output()
+    {
+        constexpr auto try_merge_output_with_next = [](edge* curr) -> bool
+        {
+            auto next = curr->next_in_obl;
+            if (next && next->curr_x == curr->curr_x) {
+                // merge_output(curr, next);
+                // remove_output_pair(curr, next);
+                return true;
+            }
+            return false;
+        };
+
+        auto curr_out = obl_first;
+        bool is_left = true;
+        while (curr_out) {
+            edge* next = curr_out->next_in_obl;
+            edge* nextnext = next->next_in_obl;
+            if (is_left && try_merge_output_with_next(curr_out)) {
+                curr_out = nextnext;
+                continue;
+            }
+            else if (next) {
+                // try next first
+                if (try_merge_output_with_next(next)) {
+                    continue;
+                }
+            }
+            is_left = !is_left;
+            curr_out = curr_out->next_in_obl;
+        }
+    }
+
     // 关键部分之一，只能传入 ael 中的 edge
     // edge 的 windcount 指的是 edge 左右两边的区域的环绕数，两个相邻区域的环绕数最多差1
     void clipper::set_windcount_closed(edge* e)
     {
         edge* e2 = e->prev_in_ael;
         //find the nearest closed path edge of the same PolyType in AEL (heading left)
-        PathType pt = get_poly_type(e);
-        while (e2 && (get_poly_type(e2) != pt || is_open(e2))) e2 = e2->prev_in_ael;
+        PathType pt = get_polytype(e);
+        while (e2 && (get_polytype(e2) != pt || is_open(e2))) e2 = e2->prev_in_ael;
 
         if (!e2)
         {
@@ -752,14 +901,14 @@ namespace vatti
         if (fillrule_ == fill_rule::even_odd)
             while (e2 != e)
             {
-                if (get_poly_type(e2) != pt && !is_open(e2))
+                if (get_polytype(e2) != pt && !is_open(e2))
                     e->wind_cnt2 = (e->wind_cnt2 == 0 ? 1 : 0);
                 e2 = e2->next_in_ael;
             }
         else
             while (e2 != e)
             {
-                if (get_poly_type(e2) != pt && !is_open(e2))
+                if (get_polytype(e2) != pt && !is_open(e2))
                     e->wind_cnt2 += e2->wind_dx;
                 e2 = e2->next_in_ael;
             }

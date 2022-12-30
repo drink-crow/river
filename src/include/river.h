@@ -20,7 +20,7 @@ enum class PathType
 };
 
 enum class fill_rule { even_odd, non_zero, positive, negative };
-enum class clip_type { none, intersection, Union, difference, Xor };
+enum class clip_type { none, intersection, union_, difference, xor_ };
 
 using Point = rmath::vec2;
 using rmath::rect;
