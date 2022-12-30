@@ -34,6 +34,9 @@ namespace vatti
     using namespace river;
     using namespace rmath;
 
+    constexpr num num_max = std::numeric_limits<num>::max();
+    constexpr num num_min = -num_max;
+
     // ToDO: 判断没齐全
     bool is_vaild(const Path& p) {
         return p.data.size() > 1;
@@ -63,9 +66,9 @@ namespace vatti
         if (dy != 0)
             return (top.x - bot.x) / dy;
         else if (top.x > bot.x)
-            return std::numeric_limits<num>::max();
+            return num_max;
         else
-            return -std::numeric_limits<num>::max();
+            return num_min;
     }
 
     void set_direction(edge* e) {
@@ -608,27 +611,39 @@ namespace vatti
         if (windcnt_change_list.empty()) return;
         windcnt_change_list.clear();
 
-        std::vector<edge*> bound_edge;
+        struct new_bound {
+            edge* edge = nullptr;
+            bool is_done = false;
+        };
+        std::vector<new_bound> bound_edge;
         auto e = ael_first;
         while (e) {
-            bool contributing = is_contributing(e);
-
-            if (contributing) {
-                bound_edge.push_back(e);
-            }
-
+            if (is_contributing(e)) { bound_edge.push_back({ e, false }); }
             e = e->next_in_ael;
-            while (e && e->is_same_with_prev) {
-                e = e->next_in_ael;
-            }         
+            while (e && e->is_same_with_prev) {  e = e->next_in_ael; }
         }
 
         // ToDo 需要注意已经在 obl 中的 bound_edge
 
-        // 下部早已合并，现在来合并上部可以合并的
+        // 下部早已合并，现在来合并上部可以合并的，依旧是只合并左右重合
+        for (size_t i = 1; i < bound_edge.size(); i += 2)
+        {
+            if (bound_edge[i-1].edge->curr_x == bound_edge[i].edge->curr_x)
+            {
+                bound_edge[i - 1].is_done = true;
+                bound_edge[i - 0].is_done = true;
 
+                // new_output(bound_edge[i-1].edge, bound_edge[i].edge);
+            }
+        }
 
-        // 新的输出轮廓和旧的相连
+        struct bound_data {
+            edge* edge;
+            out_bound* bound;
+        };
+
+        // bound_edge 和 obl 剩下的依次按 curr_x, is_up, ael, obl原来的顺序排序
+        // 新的输出轮廓和旧的相连, 同 curr_x 有多个候选时, 优先上下相连
 
 
         //struct union_data {
@@ -801,35 +816,22 @@ namespace vatti
 
     void clipper::close_output()
     {
-        constexpr auto try_merge_output_with_next = [](edge* curr) -> bool
-        {
-            auto next = curr->next_in_obl;
-            if (next && next->curr_x == curr->curr_x) {
-                // merge_output(curr, next);
-                // remove_output_pair(curr, next);
-                return true;
-            }
-            return false;
-        };
+        // 只能左和右闭合，右和左闭合的等待后续处理
+        if (!obl_first) return;
 
-        auto curr_out = obl_first;
-        bool is_left = true;
-        while (curr_out) {
-            edge* next = curr_out->next_in_obl;
-            edge* nextnext = next->next_in_obl;
-            if (is_left && try_merge_output_with_next(curr_out)) {
-                curr_out = nextnext;
-                continue;
+        auto curr = obl_first;
+        auto next = curr->next_in_obl;
+        while (next) {
+            auto nextnext = next->next_in_obl;
+            if (curr->stop_x == next->stop_x) {
+                // merge_output(curr, next)
             }
-            else if (next) {
-                // try next first
-                if (try_merge_output_with_next(next)) {
-                    continue;
-                }
-            }
-            is_left = !is_left;
-            curr_out = curr_out->next_in_obl;
+
+            curr = nextnext;
+            if (!curr) return;
+            next = curr->next_in_obl;
         }
+
     }
 
     // 关键部分之一，只能传入 ael 中的 edge

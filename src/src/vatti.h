@@ -111,6 +111,9 @@ namespace vatti
 
     struct out_bound
     {
+        out_bound* prev_in_obl = nullptr;
+        out_bound* next_in_obl = nullptr;
+
         out_polygon* owner = nullptr;
         edge* curr_e = nullptr;
         num stop_x;
@@ -187,7 +190,7 @@ namespace vatti
         std::vector<local_minima*>::iterator cur_locmin_it;
         std::priority_queue<num,std::vector<num>,std::greater<num>> scanline_list;
         edge* ael_first = nullptr;
-        edge* obl_first;
+        out_bound* obl_first;
         std::vector<num> windcnt_change_list;
 
         //boost::pool<out_seg> seg_pool;
