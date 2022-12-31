@@ -30,6 +30,7 @@ using rmath::rect;
         virtual SegType get_type() const = 0;
         virtual Seg* deep_copy() const = 0;
         virtual rect get_boundary(const Point& from) const = 0;
+        virtual void reverse(const Point& from) = 0;
     };
 
     struct Seg_moveto : public Seg
@@ -43,6 +44,9 @@ using rmath::rect;
         virtual Seg* deep_copy() const override {
             return new Seg_moveto{ target };
         }
+        virtual void reverse(const Point& from) override {
+            target = from;
+        }
     };
 
     struct Seg_lineto : public Seg
@@ -55,6 +59,9 @@ using rmath::rect;
         virtual rect get_boundary(const Point& from) const { return rect::from({ target, from }); };
         virtual Seg* deep_copy() const override {
             return new Seg_lineto{ target };
+        }
+        virtual void reverse(const Point& from) override {
+            target = from;
         }
     };
 
@@ -76,6 +83,9 @@ using rmath::rect;
         virtual Seg* deep_copy() const override {
             return new Seg_arcto{ target,center,longarc };
         }
+        virtual void reverse(const Point& from) override {
+            target = from;
+        }
     };
 
     struct Seg_cubicto : public Seg
@@ -96,6 +106,10 @@ using rmath::rect;
         };
         virtual Seg* deep_copy() const override {
             return new Seg_cubicto{ ctrl_Point1,ctrl_Point2,target };
+        }
+        virtual void reverse(const Point& from) override {
+            target = from;
+            std::swap(ctrl_Point1, ctrl_Point2);
         }
     };
 

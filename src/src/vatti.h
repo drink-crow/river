@@ -144,6 +144,8 @@ namespace vatti
 
         // 形状和前一条 ael 中的 edge 完全相同，无论 path_type
         bool is_same_with_prev = false;
+
+        inline bool is_up() const { return wind_dx > 0; }
     };
 
     class clipper
@@ -175,11 +177,13 @@ namespace vatti
         void set_windcount_closed(edge* e);
         void do_top_of_scanbeam(num y);
         void close_output(num y);
+        void resort_ael(num y);
         void join_output(out_bound* a, out_bound* b, num y);
         void new_output(edge* a, edge* b);
         void update_bound(out_bound* bound, edge* new_edge);
         out_bound* new_bound();
         void delete_obl_bound(out_bound*);
+        edge* delete_active_edge(edge*);
 
         clip_type cliptype_ = clip_type::intersection;
         fill_rule fillrule_ = fill_rule::positive;

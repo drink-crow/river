@@ -48,6 +48,11 @@ namespace vatti
 
     inline bool is_open(const edge* e) { return false; }
 
+    inline bool is_maxima(const edge* e) { return (e->vertex_top->flags 
+        & vertex_flags::local_max) != vertex_flags::none; }
+
+    inline bool is_hot(const edge* e) { return e->bound; }
+
     void clipper::add_local_min(vertex* vert, PathType pt, bool is_open)
     {
         //make sure the vertex is added only once ...
@@ -73,6 +78,31 @@ namespace vatti
 
     void set_direction(edge* e) {
         e->dx = get_direction(e->top, e->bot);
+    }
+
+    Seg* get_seg(const edge* e, bool reverse = false) {
+        Seg* res = nullptr;
+        if (e->is_up()) {
+            auto prev = e->vertex_top->prev;
+            res = prev->next_seg->deep_copy();
+            if (reverse) res->reverse(prev->pt);
+        }
+        else {
+            res = e->vertex_top->next_seg->deep_copy();
+            if (reverse) res->reverse(e->top);
+        }
+
+        return res;
+    }
+
+    void update_curr_x(edge* e, num y)
+    {
+        // ToDo
+    }
+
+    vertex* next_vertex(const edge* e) {
+        if (e->is_up()) return e->vertex_top->next;
+        else return e->vertex_top->prev;
     }
 
     void clipper::reset()
@@ -270,6 +300,7 @@ namespace vatti
             if (!pop_scanline(y)) break;  // y new top of scanbeam
             do_top_of_scanbeam(y);
             close_output(y);
+            resort_ael(y);
             //while (pop_horz(&e)) do_horizontal(e);
         }
     }
@@ -453,9 +484,11 @@ namespace vatti
             left_bound = new edge();
             left_bound->bot = local_minima->vert->pt;
             left_bound->curr_x = left_bound->bot.x;
+            // 这里确定一条边的朝向很简单，因为是 local minima，所以总是有以上一下，所以我们直接设定一条为vert->next
+            // 则它的朝向肯定就是朝上的
+            left_bound->vertex_top = local_minima->vert->prev;  // ie descending
             left_bound->wind_dx = -1;
             left_bound->wind_dx_all = left_bound->wind_dx;
-            left_bound->vertex_top = local_minima->vert->prev;  // ie descending
             left_bound->top = left_bound->vertex_top->pt;
             left_bound->local_min = local_minima;
             set_direction(left_bound);
@@ -463,9 +496,9 @@ namespace vatti
             right_bound = new edge();
             right_bound->bot = local_minima->vert->pt;
             right_bound->curr_x = right_bound->bot.x;
+            right_bound->vertex_top = local_minima->vert->next;  // ie ascending
             right_bound->wind_dx = 1;
             right_bound->wind_dx_all = right_bound->wind_dx;
-            right_bound->vertex_top = local_minima->vert->next;  // ie ascending
             right_bound->top = right_bound->vertex_top->pt;
             right_bound->local_min = local_minima;
             set_direction(right_bound);
@@ -846,7 +879,44 @@ namespace vatti
 
     void clipper::do_top_of_scanbeam(num y)
     {
-        
+        num last_x = num_min;
+        auto e = ael_first;
+        while (e)
+        {
+            if (e->top.y == y) {
+                e->curr_x = e->top.x;
+                if (e->curr_x == last_x) windcnt_change_list.push_back(last_x);
+                if (is_hot(e)) {
+                    auto b = e->bound;
+                    bool reverse = e->is_up() != b->is_up();
+                    auto new_seg = get_seg(e, reverse);
+                    if (b->is_up()) {
+                        b->owner->up_path.push_back(new_seg);
+                    }
+                    else {
+                        b->owner->down_path.push_back(new_seg);
+                    }
+
+                    b->stop_x = e->curr_x;
+                }
+
+                // ToDo 需要跳过水平线
+                e->vertex_top = next_vertex(e);
+                e->bot = e->top;
+                e->top = e->vertex_top->pt;
+
+                if (is_maxima(e)) {
+                    e = delete_active_edge(e);
+                }
+            }
+            else {
+                update_curr_x(e, y);
+                if (is_hot(e)) e->bound->stop_x = e->curr_x;
+                if (e->curr_x == last_x) windcnt_change_list.push_back(last_x);
+            }
+
+            last_x = e->curr_x;
+        }
     }
 
     void clipper::close_output(num y)
@@ -868,9 +938,18 @@ namespace vatti
         }
     }
 
+    void clipper::resort_ael(num y)
+    {
+    }
+
     // 到达顶点close了，left 和 right 都会从 obl 中移除
     void clipper::join_output(out_bound* a, out_bound* b, num y)
     {
+        a->edge->bound = nullptr;
+        b->edge->bound = nullptr;
+        a->edge = nullptr;
+        b->edge = nullptr;
+
         auto aout = a->owner;
         auto bout = b->owner;
 
