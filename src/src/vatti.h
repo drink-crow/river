@@ -97,15 +97,14 @@ namespace vatti
     {
         size_t idx = 0;
         out_polygon* owner = nullptr;
+        Point origin;
+        out_bound* up_bound = nullptr;
+        out_bound* down_bound = nullptr;
 
-        edge* front_edge = nullptr;
-        edge* back_edge = nullptr;
+        std::vector<Seg*> up_path; // +1 wind_dx
+        std::vector<Seg*> down_path; // -1 wind_dx
 
-        out_bound* left_bound = nullptr;
-        out_bound* right_bound = nullptr;
-
-        out_pt* pts = nullptr;
-
+        bool is_complete = false;
         bool is_open = false;
     };
 
@@ -115,9 +114,13 @@ namespace vatti
         out_bound* next_in_obl = nullptr;
 
         out_polygon* owner = nullptr;
-        edge* curr_e = nullptr;
+        edge* edge = nullptr;
         num stop_x;
-        bool is_cloesd = false;
+        int wind_dx = 1;
+
+        inline bool is_up() const {
+            return wind_dx > 0;
+        }
     };
 
     struct edge
@@ -127,23 +130,18 @@ namespace vatti
         num curr_x = 0;
         // ToDo 单 double 不足以表示曲线内容走向和斜率
         double dx = 0.;
-        int wind_dx = 1; //1 or -1 depending on winding direction
+        int wind_dx = 1; // 1 = up, -1 = down
         int wind_dx_all = 1;
         int wind_cnt = 0; // 表示环绕方向左边区域的环绕数
         int wind_cnt2 = 0; //winding count of the opposite polytype
 
-        out_polygon* out_poly = nullptr;
-
         edge* prev_in_ael = nullptr;
         edge* next_in_ael = nullptr;
-
-        edge* prev_in_obl = nullptr;
-        edge* next_in_obl = nullptr;
+        out_bound* bound = nullptr;
 
         vertex* vertex_top = nullptr;
         local_minima* local_min = nullptr;
 
-        bool is_left_bound = false;
         // 形状和前一条 ael 中的 edge 完全相同，无论 path_type
         bool is_same_with_prev = false;
     };
@@ -167,7 +165,7 @@ namespace vatti
         bool pop_local_minima(num y, local_minima** out);
         void insert_local_minima_to_ael(num y);
         void recalc_windcnt();
-        void update_ouput_bound();
+        void update_ouput_bound(num y);
         bool is_contributing(edge* e);
         edge* calc_windcnt(edge* e);
         void insert_into_ael(edge* newcomer);
@@ -176,7 +174,12 @@ namespace vatti
         void push_windcnt_change(num x);
         void set_windcount_closed(edge* e);
         void do_top_of_scanbeam(num y);
-        void close_output();
+        void close_output(num y);
+        void join_output(out_bound* a, out_bound* b, num y);
+        void new_output(edge* a, edge* b);
+        void update_bound(out_bound* bound, edge* new_edge);
+        out_bound* new_bound();
+        void delete_obl_bound(out_bound*);
 
         clip_type cliptype_ = clip_type::intersection;
         fill_rule fillrule_ = fill_rule::positive;
@@ -192,6 +195,7 @@ namespace vatti
         edge* ael_first = nullptr;
         out_bound* obl_first;
         std::vector<num> windcnt_change_list;
+        std::vector<out_polygon*> output_list;
 
         //boost::pool<out_seg> seg_pool;
         //boost::pool<double> seg_data_pool;

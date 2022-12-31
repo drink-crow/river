@@ -75,12 +75,6 @@ namespace vatti
         e->dx = get_direction(e->top, e->bot);
     }
 
-    void swap_edge(edge** l, edge** r) {
-        edge* tmp = *l;
-        *l = *r;
-        *r = tmp;
-    }
-
     void clipper::reset()
     {
         // build init scan line list
@@ -272,10 +266,10 @@ namespace vatti
             //edge* e;
             //while (pop_horz(&e)) do_horizontal(e);
             recalc_windcnt();
-            update_ouput_bound();
+            update_ouput_bound(y);
             if (!pop_scanline(y)) break;  // y new top of scanbeam
             do_top_of_scanbeam(y);
-            close_output();
+            close_output(y);
             //while (pop_horz(&e)) do_horizontal(e);
         }
     }
@@ -477,11 +471,8 @@ namespace vatti
             set_direction(right_bound);
 
             if (left_bound->dx > right_bound->dx) {
-                swap_edge(&left_bound, &right_bound);
+                std::swap(left_bound, right_bound);
             }
-
-            left_bound->is_left_bound = true;
-            right_bound->is_left_bound = false;
 
             insert_into_ael(left_bound);
             insert_into_ael(left_bound, right_bound);
@@ -606,7 +597,7 @@ namespace vatti
         return curr_e;
     }
 
-    void clipper::update_ouput_bound()
+    void clipper::update_ouput_bound(num y)
     {
         if (windcnt_change_list.empty()) return;
         windcnt_change_list.clear();
@@ -623,9 +614,7 @@ namespace vatti
             while (e && e->is_same_with_prev) {  e = e->next_in_ael; }
         }
 
-        // ToDo 需要注意已经在 obl 中的 bound_edge
-
-        // 下部早已合并，现在来合并上部可以合并的，依旧是只合并左右重合
+        // 下部早已合并，现在来合并上部可以合并的，依旧是只合并 curr_x 重合的左右边
         for (size_t i = 1; i < bound_edge.size(); i += 2)
         {
             if (bound_edge[i-1].edge->curr_x == bound_edge[i].edge->curr_x)
@@ -633,39 +622,85 @@ namespace vatti
                 bound_edge[i - 1].is_done = true;
                 bound_edge[i - 0].is_done = true;
 
-                // new_output(bound_edge[i-1].edge, bound_edge[i].edge);
+                new_output(bound_edge[i-1].edge, bound_edge[i].edge);
             }
         }
 
         struct bound_data {
             edge* edge;
             out_bound* bound;
+            num curr_x;
+            size_t obl_index;
         };
 
-        // bound_edge 和 obl 剩下的依次按 curr_x, is_up, ael, obl原来的顺序排序
-        // 新的输出轮廓和旧的相连, 同 curr_x 有多个候选时, 优先上下相连
+        // bound_edge 和 obl 剩下的依次按 curr_x, is_up, obl_index, ael, obl原来的顺序排序
 
+        std::list<bound_data> sbl;
+        for (auto& new_b : bound_edge) {
+            if (new_b.is_done == false) sbl.push_back({
+                new_b.edge, nullptr, new_b.edge->curr_x, sbl.size() });
+        }
+        auto curr_b = obl_first;
+        while (curr_b) {
+            sbl.push_back({ nullptr, curr_b, curr_b->edge->curr_x, sbl.size() });
+            curr_b = curr_b->next_in_obl;
+        }
+        std::sort(sbl.begin(), sbl.end(),
+            [](const bound_data& l, const bound_data& r) -> bool {
+                if (l.curr_x != r.curr_x) return l.curr_x < r.curr_x;
+                return l.obl_index < r.obl_index;
+            });
 
-        //struct union_data {
-        //    out_bound* bound = nullptr;
-        //    edge* bound_edge = nullptr;
-        //};
 
         // 此时必定没有可以相连接的 out_bound, 也没有可以相连接组成闭合区域的 bound_edge
         // 只剩下可以上下相连的 out_bound 和 edge，按顺序两两相连即可
-        if(obl_first)
+
         {
-            size_t upi = 0;
-            auto down_l = obl_first;
-            auto down_l = obl_first->next_in_obl;
+            auto it = sbl.begin();
+            while (it != sbl.end())
             {
-                auto up_l = bound_edge[upi];
-                auto up_r = bound_edge[upi + 1];
-                auto down_l = bound_edge[upi];
+                auto next = std::next(it);
+                while (next != sbl.end() && next->curr_x == it->curr_x
+                    && bool(next->edge) == bool(it->edge)) {
+                    ++next;
+                }
+                if (next != sbl.end() && next->curr_x == it->curr_x
+                    && bool(next->edge) != bool(it->edge)) {
+                    // 同 curr_x 有多个候选时, 优先上下相连
+                    if(it->edge) update_bound(next->bound, it->edge);
+                    else update_bound(it->bound, next->edge);
+                    sbl.erase(next);
+                    ++it;
+                    continue;
+                }
+
+                // 只剩下可以按顺序两两相连即可
+                next = std::next(it);
+                if (it->edge && next->edge) new_output(it->edge, next->edge);
+                else if (it->bound && next->bound) join_output(it->bound, next->bound, y);
+                else if (it->edge) update_bound(next->bound, it->edge);
+                else update_bound(it->bound, next->edge);
+                // connect_bound(*it, *next);
+                it = std::next(it, 2);
             }
         }
 
         // 解散旧的 obl，构造新的 obl
+        // 按道理来说，旧的 obl 中的 out_bound 已经完全更新，直接构造新的 obl 即可
+        {
+            if (bound_edge.empty()) return;
+            auto it = bound_edge.begin();
+            obl_first = it->edge->bound;
+            obl_first->prev_in_obl = nullptr; obl_first->next_in_obl = nullptr;
+            auto last = obl_first;
+            ++it;
+            while (it != bound_edge.end()) {
+                auto next_b = it->edge->bound;
+                last->next_in_obl = next_b;
+                next_b->prev_in_obl = last;
+                last = next_b;
+            }
+        }
     }
 
     bool clipper::is_contributing(edge* e)
@@ -814,7 +849,7 @@ namespace vatti
         
     }
 
-    void clipper::close_output()
+    void clipper::close_output(num y)
     {
         // 只能左和右闭合，右和左闭合的等待后续处理
         if (!obl_first) return;
@@ -824,14 +859,142 @@ namespace vatti
         while (next) {
             auto nextnext = next->next_in_obl;
             if (curr->stop_x == next->stop_x) {
-                // merge_output(curr, next)
+                join_output(curr, next, y);
             }
 
             curr = nextnext;
             if (!curr) return;
             next = curr->next_in_obl;
         }
+    }
 
+    // 到达顶点close了，left 和 right 都会从 obl 中移除
+    void clipper::join_output(out_bound* a, out_bound* b, num y)
+    {
+        auto aout = a->owner;
+        auto bout = b->owner;
+
+        if (a->stop_x != b->stop_x) {
+            if (a->is_up()) {
+                aout->up_path.push_back(new Seg_lineto(Point(b->stop_x, y)));
+            }
+            else {
+                aout->down_path.push_back(new Seg_lineto(Point(a->stop_x, y)));
+            }
+        }
+
+        if (aout == bout) {
+            aout->is_complete = true;
+            delete_obl_bound(a);
+            delete_obl_bound(b);
+            return;
+        }
+
+        out_bound* dst_b = a;
+        out_bound* src_b = b;
+        if (aout->idx > bout->idx) {
+            std::swap(dst_b, src_b);
+        }
+        auto dst_out = dst_b->owner;
+        auto src_out = src_b->owner;
+
+        if (dst_b->is_up()) {
+            // move src to dst front;
+            dst_out->up_path.insert(dst_out->up_path.end(),
+                src_out->down_path.rbegin(), src_out->down_path.rend());
+            dst_out->up_path.insert(dst_out->up_path.end(),
+                src_out->up_path.begin(), src_out->up_path.end());
+
+            dst_out->up_bound = src_out->up_bound;
+            dst_out->up_bound->owner = dst_out;
+        }
+        else {
+            dst_out->down_path.insert(dst_out->up_path.end(),
+                src_out->up_path.rbegin(), src_out->up_path.rend());
+            dst_out->down_path.insert(dst_out->up_path.end(),
+                src_out->down_path.begin(), src_out->down_path.end());
+
+            dst_out->down_bound = src_out->down_bound;
+            dst_out->down_bound->owner = dst_out;
+        }
+
+        src_out->owner = dst_out;
+        src_out->up_path.clear();
+        src_out->down_path.clear();
+        src_out->up_bound = nullptr;
+        src_out->down_bound = nullptr;
+        src_out->is_complete = true;
+
+        delete_obl_bound(a);
+        delete_obl_bound(b);
+    }
+
+    // a、b 必定是一上一下
+    void clipper::new_output(edge* a, edge* b)
+    {
+        auto output = new out_polygon;
+        output->idx = output_list.size();
+        output->owner = nullptr; // ToDo 这里可以开始计算polytree了
+
+        auto up = new_bound();
+        up->owner = output;
+        up->edge = a;
+        up->wind_dx = a->wind_dx_all;
+        up->stop_x = a->curr_x;
+
+        auto down = new_bound();
+        down->owner = output;
+        down->edge = b;
+        down->wind_dx = b->wind_dx_all;
+        down->stop_x = b->curr_x;
+
+        if (up->wind_dx < 0) {
+            std::swap(up, down);
+        }
+
+        output->up_bound = up;
+        output->down_bound = down;
+
+        output->origin = down->edge->bot;
+        if (up->edge->bot != down->edge->bot) {
+            output->up_path.push_back(new Seg_lineto(up->edge->bot));
+        }
+    }
+
+    // bound->edge must be nullptr
+    void clipper::update_bound(out_bound* bound, edge* new_edge)
+    {
+        if (new_edge->curr_x != bound->stop_x) {
+            if (bound->is_up()) {
+                bound->owner->up_path.push_back(new Seg_lineto(new_edge->bot));
+            }
+            else {
+                bound->owner->down_path.push_back(
+                    new Seg_lineto(Point(bound->stop_x, new_edge->bot.y))
+                );
+            }
+        }
+
+        bound->edge = new_edge;
+        new_edge->bound = bound;
+    }
+
+    out_bound* clipper::new_bound()
+    {
+        return new out_bound;
+    }
+
+    void clipper::delete_obl_bound(out_bound* b)
+    {
+        auto prev = b->prev_in_obl;
+        auto next = b->next_in_obl;
+
+        if (prev) prev->next_in_obl = next;
+        else obl_first = next;
+
+        if (next) next->prev_in_obl = prev;
+
+        delete b;
     }
 
     // 关键部分之一，只能传入 ael 中的 edge
