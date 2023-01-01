@@ -9,8 +9,6 @@
 
 #include "boost/geometry.hpp"
 
-#include "glm/glm.hpp"
-
 namespace dcel {
     using namespace river;
     typedef double num;

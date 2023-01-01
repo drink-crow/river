@@ -237,7 +237,7 @@ public:
     void add_line(num x1, num y1, num x2, num y2);
     void add_path(const Paths& in, PathType pt);
 
-    void process();
+    void process(clip_type operation, fill_rule fill_rule, Paths& output);
 
 private:
     processor_private* pptr;

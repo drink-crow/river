@@ -41,13 +41,16 @@ void processor::process()
 
 void processor::add_path(const Paths& in, PathType pt)
 {
-    draw_path(in);
+    QPen pen;
+    if (pt == PathType::Clip) pen.setColor(Qt::blue);
+
+    draw_path(in, pen);
     pptr->clipper.add_path(in, pt, false);
 }
 
-void processor::process()
+void processor::process(clip_type operation, fill_rule fill_rule, Paths& output)
 {
-    pptr->clipper.process();
+    pptr->clipper.process(operation, fill_rule, output);
 }
 
 #endif

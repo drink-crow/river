@@ -128,6 +128,8 @@ namespace vatti
         }
 
         cur_locmin_it = local_minima_list.begin();
+        ael_first = nullptr;
+        obl_first = nullptr;
     }
 
     void clipper::add_path(const Paths& paths, PathType polytype, bool is_open)
@@ -291,8 +293,11 @@ namespace vatti
         }
     }
 
-    void clipper::process()
+    void clipper::process(clip_type operation, fill_rule fill, Paths& output)
     {
+        cliptype_ = operation;
+        fillrule_ = fill;
+
         process_intersect();
         reset();
 
@@ -311,6 +316,13 @@ namespace vatti
             close_output(y);
             resort_ael(y);
             //while (pop_horz(&e)) do_horizontal(e);
+        }
+
+        if (succeeded_) {
+            build_output(output);
+
+            QPen redpen(Qt::red);
+            draw_path(output, redpen);
         }
     }
 
@@ -687,7 +699,7 @@ namespace vatti
             sbl.push_back({ nullptr, curr_b, curr_b->edge->curr_x, sbl.size() });
             curr_b = curr_b->next_in_obl;
         }
-        std::sort(sbl.begin(), sbl.end(),
+        sbl.sort(
             [](const bound_data& l, const bound_data& r) -> bool {
                 if (l.curr_x != r.curr_x) return l.curr_x < r.curr_x;
                 return l.obl_index < r.obl_index;
@@ -928,17 +940,21 @@ namespace vatti
                 e->bot = e->top;
                 e->top = e->vertex_top->pt;
 
+                last_x = e->curr_x;
                 if (is_maxima(e)) {
                     e = delete_active_edge(e);
+                }
+                else {
+                    e = e->next_in_ael;
                 }
             }
             else {
                 update_intermediate_curr_x(e, y);
                 if (is_hot(e)) e->bound->stop_x = e->curr_x;
                 if (e->curr_x == last_x) windcnt_change_list.push_back(last_x);
+                last_x = e->curr_x;
+                e = e->next_in_ael;
             }
-
-            last_x = e->curr_x;
         }
     }
 
@@ -983,6 +999,33 @@ namespace vatti
         }
 
         for (auto e : reinsert_list) insert_into_ael(e);
+    }
+
+    void clipper::build_output(Paths& output)
+    {
+        for (auto out : output_list) {
+            if (out->is_complete) {
+                if (out->up_path.empty() && out->down_path.empty())
+                continue;
+
+                Path res;
+                res.moveto(out->origin);
+                res.data.insert(res.data.end(),
+                    out->up_path.begin(), out->up_path.end());
+                res.data.insert(res.data.end(),
+                    out->down_path.rbegin(), out->down_path.rend());
+
+                output.push_back(std::move(res));
+                out->up_path.clear();
+                out->down_path.clear();
+            }
+            else {
+                for (auto seg : out->up_path) delete seg;
+                for (auto seg : out->down_path) delete seg;
+                out->up_path.clear();
+                out->down_path.clear();
+            }
+        }
     }
 
     // 到达顶点close了，left 和 right 都会从 obl 中移除
@@ -1129,6 +1172,7 @@ namespace vatti
         else ael_first = next;
 
         delete e;
+        return next;
     }
 
     // 关键部分之一，只能传入 ael 中的 edge
