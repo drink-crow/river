@@ -530,6 +530,8 @@ namespace vatti
 
             insert_into_ael(left_bound);
             insert_into_ael(left_bound, right_bound);
+            insert_scanline(left_bound->top.y);
+            insert_scanline(right_bound->top.y);
 
             push_windcnt_change(left_bound->bot.x);
         }
@@ -935,18 +937,18 @@ namespace vatti
                     b->stop_x = e->curr_x;
                 }
 
+                last_x = e->curr_x;
+                if (is_maxima(e)) {
+                    e = delete_active_edge(e);
+                    continue;
+                }
+
                 // ToDo 需要跳过水平线
                 e->vertex_top = next_vertex(e);
                 e->bot = e->top;
                 e->top = e->vertex_top->pt;
-
-                last_x = e->curr_x;
-                if (is_maxima(e)) {
-                    e = delete_active_edge(e);
-                }
-                else {
-                    e = e->next_in_ael;
-                }
+                insert_scanline(e->top.y);
+                e = e->next_in_ael;
             }
             else {
                 update_intermediate_curr_x(e, y);
@@ -990,8 +992,9 @@ namespace vatti
         while (it!= list.end() && e) {
             if (e->curr_x == *it) {
                 reinsert_list.push_back(e);
-                e = e->next_in_ael;
+                auto next = e->next_in_ael;
                 take_from_ael(e);
+                e = next;
             }
             else if (*it < e->curr_x)
                 ++it;
