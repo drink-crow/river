@@ -97,7 +97,7 @@ namespace vatti
 
     Seg* copy_seg(const edge* e, bool reverse = false) {
         Point from;
-        Seg* res = get_seg(e, from);
+        Seg* res = get_seg(e, from)->deep_copy();
         if (reverse) res->reverse(from);
         return res;
     }
@@ -508,7 +508,7 @@ namespace vatti
             // 这里确定一条边的朝向很简单，因为是 local minima，所以总是有以上一下，所以我们直接设定一条为vert->next
             // 则它的朝向肯定就是朝上的
             left_bound->vertex_top = local_minima->vert->prev;  // ie descending
-            left_bound->wind_dx = -1;
+            left_bound->wind_dx = 1;
             left_bound->wind_dx_all = left_bound->wind_dx;
             left_bound->top = left_bound->vertex_top->pt;
             left_bound->local_min = local_minima;
@@ -518,7 +518,7 @@ namespace vatti
             right_bound->bot = local_minima->vert->pt;
             right_bound->curr_x = right_bound->bot.x;
             right_bound->vertex_top = local_minima->vert->next;  // ie ascending
-            right_bound->wind_dx = 1;
+            right_bound->wind_dx = -1;
             right_bound->wind_dx_all = right_bound->wind_dx;
             right_bound->top = right_bound->vertex_top->pt;
             right_bound->local_min = local_minima;
@@ -755,6 +755,7 @@ namespace vatti
                 last->next_in_obl = next_b;
                 next_b->prev_in_obl = last;
                 last = next_b;
+                ++it;
             }
         }
     }
@@ -939,6 +940,10 @@ namespace vatti
 
                 last_x = e->curr_x;
                 if (is_maxima(e)) {
+                    if (is_hot(e)) {
+                        e->bound->edge = nullptr;
+                        e->bound = nullptr;
+                    }
                     e = delete_active_edge(e);
                     continue;
                 }
@@ -1034,8 +1039,8 @@ namespace vatti
     // 到达顶点close了，left 和 right 都会从 obl 中移除
     void clipper::join_output(out_bound* a, out_bound* b, num y)
     {
-        a->edge->bound = nullptr;
-        b->edge->bound = nullptr;
+        if(a->edge) a->edge->bound = nullptr;
+        if(b->edge) b->edge->bound = nullptr;
         a->edge = nullptr;
         b->edge = nullptr;
 
@@ -1102,21 +1107,24 @@ namespace vatti
     {
         auto output = new out_polygon;
         output->idx = output_list.size();
+        output_list.push_back(output);
         output->owner = nullptr; // ToDo 这里可以开始计算polytree了
 
         auto up = new_bound();
         up->owner = output;
         up->edge = a;
+        a->bound = up;
         up->wind_dx = a->wind_dx_all;
         up->stop_x = a->curr_x;
 
         auto down = new_bound();
         down->owner = output;
         down->edge = b;
+        b->bound = down;
         down->wind_dx = b->wind_dx_all;
         down->stop_x = b->curr_x;
 
-        if (up->wind_dx < 0) {
+        if (!up->is_up()) {
             std::swap(up, down);
         }
 

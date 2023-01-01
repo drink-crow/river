@@ -101,8 +101,8 @@ namespace vatti
         out_bound* up_bound = nullptr;
         out_bound* down_bound = nullptr;
 
-        std::vector<Seg*> up_path; // +1 wind_dx
-        std::vector<Seg*> down_path; // -1 wind_dx
+        std::vector<Seg*> up_path;
+        std::vector<Seg*> down_path;
 
         bool is_complete = false;
         bool is_open = false;
@@ -119,7 +119,7 @@ namespace vatti
         int wind_dx = 1;
 
         inline bool is_up() const {
-            return wind_dx > 0;
+            return wind_dx < 0;
         }
     };
 
@@ -145,7 +145,7 @@ namespace vatti
         // 形状和前一条 ael 中的 edge 完全相同，无论 path_type
         bool is_same_with_prev = false;
 
-        inline bool is_up() const { return wind_dx > 0; }
+        inline bool is_up() const { return wind_dx < 0; }
     };
 
     class clipper
