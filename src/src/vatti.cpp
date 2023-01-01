@@ -80,24 +80,33 @@ namespace vatti
         e->dx = get_direction(e->top, e->bot);
     }
 
-    Seg* get_seg(const edge* e, bool reverse = false) {
+    Seg* get_seg(const edge* e, Point& out_from) {
         Seg* res = nullptr;
         if (e->is_up()) {
             auto prev = e->vertex_top->prev;
-            res = prev->next_seg->deep_copy();
-            if (reverse) res->reverse(prev->pt);
+            res = prev->next_seg;
+            out_from = prev->pt;
         }
         else {
-            res = e->vertex_top->next_seg->deep_copy();
-            if (reverse) res->reverse(e->top);
+            res = e->vertex_top->next_seg;
+            out_from = e->top;
         }
 
         return res;
     }
 
-    void update_curr_x(edge* e, num y)
+    Seg* copy_seg(const edge* e, bool reverse = false) {
+        Point from;
+        Seg* res = get_seg(e, from);
+        if (reverse) res->reverse(from);
+        return res;
+    }
+
+    void update_intermediate_curr_x(edge* e, num y)
     {
-        // ToDo
+        Point from;
+        auto seg = get_seg(e, from);
+        e->curr_x = seg->curr_x(from, y);
     }
 
     vertex* next_vertex(const edge* e) {
@@ -858,6 +867,19 @@ namespace vatti
         resident->next_in_ael = newcomer;
     }
 
+    void clipper::take_from_ael(edge* e)
+    {
+        auto prev = e->prev_in_ael;
+        auto next = e->next_in_ael;
+
+        if (prev) prev->next_in_ael = next;
+        else ael_first = next;
+        if (next) next->prev_in_ael = prev;
+
+        e->prev_in_ael = nullptr;
+        e->next_in_ael = nullptr;
+    }
+
     bool clipper::is_valid_ael_order(const edge* resident, const edge* newcomer) const
     {
         if (newcomer->curr_x != resident->curr_x)
@@ -879,6 +901,7 @@ namespace vatti
 
     void clipper::do_top_of_scanbeam(num y)
     {
+        windcnt_change_list.clear();
         num last_x = num_min;
         auto e = ael_first;
         while (e)
@@ -889,7 +912,7 @@ namespace vatti
                 if (is_hot(e)) {
                     auto b = e->bound;
                     bool reverse = e->is_up() != b->is_up();
-                    auto new_seg = get_seg(e, reverse);
+                    auto new_seg = copy_seg(e, reverse);
                     if (b->is_up()) {
                         b->owner->up_path.push_back(new_seg);
                     }
@@ -910,7 +933,7 @@ namespace vatti
                 }
             }
             else {
-                update_curr_x(e, y);
+                update_intermediate_curr_x(e, y);
                 if (is_hot(e)) e->bound->stop_x = e->curr_x;
                 if (e->curr_x == last_x) windcnt_change_list.push_back(last_x);
             }
@@ -940,6 +963,26 @@ namespace vatti
 
     void clipper::resort_ael(num y)
     {
+        auto& list = windcnt_change_list;
+        std::sort(list.begin(), list.end());
+        list.erase(std::unique(list.begin(), list.end()), list.end());
+
+        auto it = list.begin();
+        auto e = ael_first;
+
+        std::vector<edge*> reinsert_list;
+        while (it!= list.end() && e) {
+            if (e->curr_x == *it) {
+                reinsert_list.push_back(e);
+                e = e->next_in_ael;
+                take_from_ael(e);
+            }
+            else if (*it < e->curr_x)
+                ++it;
+            else e = e->next_in_ael;
+        }
+
+        for (auto e : reinsert_list) insert_into_ael(e);
     }
 
     // 到达顶点close了，left 和 right 都会从 obl 中移除
@@ -1074,6 +1117,18 @@ namespace vatti
         if (next) next->prev_in_obl = prev;
 
         delete b;
+    }
+
+    edge* clipper::delete_active_edge(edge* e)
+    {
+        auto next = e->next_in_ael;
+        auto prev = e->prev_in_ael;
+
+        if (next) next->prev_in_ael = prev;
+        if (prev) prev->next_in_ael = next;
+        else ael_first = next;
+
+        delete e;
     }
 
     // 关键部分之一，只能传入 ael 中的 edge

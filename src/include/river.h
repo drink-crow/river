@@ -31,6 +31,7 @@ using rmath::rect;
         virtual Seg* deep_copy() const = 0;
         virtual rect get_boundary(const Point& from) const = 0;
         virtual void reverse(const Point& from) = 0;
+        virtual double curr_x(const Point& from, double y) const = 0;
     };
 
     struct Seg_moveto : public Seg
@@ -47,6 +48,7 @@ using rmath::rect;
         virtual void reverse(const Point& from) override {
             target = from;
         }
+        virtual double curr_x(const Point& from, double y) const override { return target.x; }
     };
 
     struct Seg_lineto : public Seg
@@ -62,6 +64,9 @@ using rmath::rect;
         }
         virtual void reverse(const Point& from) override {
             target = from;
+        }
+        virtual double curr_x(const Point& from, double y) const override {
+            return (target.x - from.x) * (y - from.y) + target.x;
         }
     };
 
@@ -85,6 +90,10 @@ using rmath::rect;
         }
         virtual void reverse(const Point& from) override {
             target = from;
+        }
+        virtual double curr_x(const Point& from, double y) const override {
+            // ToDo 需要修正计算
+            return (target.x - from.x) * (y - from.y) + target.x;
         }
     };
 
@@ -110,6 +119,10 @@ using rmath::rect;
         virtual void reverse(const Point& from) override {
             target = from;
             std::swap(ctrl_Point1, ctrl_Point2);
+        }
+        virtual double curr_x(const Point& from, double y) const override {
+            // ToDo 需要修正计算
+            return (target.x - from.x) * (y - from.y) + target.x;
         }
     };
 
