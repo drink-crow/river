@@ -199,15 +199,21 @@ namespace vatti
                     break;
                 default:
                     // ToDO: 别的曲线类型
-                    // ToDO: 删去重复的直线
-                    set_segment(prev, cur, seg->deep_copy());
+                    if(seg->get_target() != prev->pt) 
+                        set_segment(prev, cur, seg->deep_copy());
                     break;
                 }
 
                 prev = cur;
             }
-            // ToDO: 将最后一点合并至起点，这里还应该判断时候闭合了，没有的话给它拉一条直线自动闭合
-            set_segment(cur->prev, first, cur->prev->next_seg);
+            if (!cur) continue;
+            if (cur->pt != first->pt) { // 末点不重合则连接至 first
+                set_segment(cur, first, new Seg_lineto(first->pt));
+            }
+            else { // 否则丢弃cur，重新连接至 first
+                prev = cur->prev;
+                set_segment(prev, first, prev->next_seg);
+            }
 
 #if 0
             {
@@ -240,8 +246,20 @@ namespace vatti
 
             bool going_down, going_down0;
             {
-                // ToDO: 这里要补充往前找第一个不为水平的比较，顺便检查是不是完全水平的一个多边形
-                going_down = first->pt.y < first->prev->pt.y;
+                bool total_horz = true;
+                auto e = first;
+                do {
+                    if (e->pt.y == e->prev->pt.y) {
+                        e = e->prev;
+                    }
+                    else {
+                        going_down = e->pt.y < e->prev->pt.y;
+                        total_horz = false;
+                        break;
+                    }
+                } while (e != first);
+                // 完全水平扁平的内容会被跳过
+                if (total_horz) continue;
                 going_down0 = going_down;
             }
             prev = first;
