@@ -586,7 +586,11 @@ namespace vatti
                 else if (curr_e->curr_x > x) {
                     break;
                 }
-                else {  curr_e = calc_windcnt(curr_e); }
+                else {  
+                    if (curr_e->bound) curr_e->bound->edge = nullptr;
+                    curr_e->bound = nullptr;
+                    curr_e = calc_windcnt(curr_e); 
+                }
             }
         }
     }
@@ -1045,6 +1049,9 @@ namespace vatti
             if (e->curr_x == *it) {
                 reinsert_list.push_back(e);
                 auto next = e->next_in_ael;
+                // 重新排列也意味着原来的bound有可能失效
+                if (e->bound) e->bound->edge = nullptr;
+                e->bound = nullptr;
                 take_from_ael(e);
                 e = next;
             }
@@ -1149,7 +1156,7 @@ namespace vatti
         delete_obl_bound(b);
     }
 
-    // a、b 必定是一上一下
+    // a、b 的wind_dx必定相反
     void clipper::new_output(edge* a, edge* b)
     {
         auto output = new out_polygon;

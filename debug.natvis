@@ -13,7 +13,7 @@
     <DisplayString>{vert->pt}, {t}, {break_point}, {vert->next_seg}</DisplayString>
   </Type>
   <Type Name="vatti::edge">
-    <DisplayString>{{bot{{{bot}}}, top{{{top}}}, x={curr_x,g}, wc={wind_cnt}, wc2={wind_cnt2}, wind_dx={wind_dx}}</DisplayString>
+    <DisplayString>{{bot{{{bot}}}, top{{{top}}}, x={curr_x,g}, wc={wind_cnt}, wc2={wind_cnt2}, wind_dx={wind_dx}, hot={(bool)bound}}</DisplayString>
     <Expand>
       <CustomListItems MaxItemsPerView="5000" ExcludeView="Test">
         <Variable Name="next" InitialValue="next_in_ael" />
@@ -26,8 +26,8 @@
     </Expand>
   </Type>
   <Type Name="vatti::out_bound">
-    <DisplayString Condition="edge != nullptr">{{x={stop_x,g}, edge {*edge} }}</DisplayString>
-    <DisplayString Condition="edge == nullptr">{{x={stop_x,g}}}</DisplayString>
+    <DisplayString Condition="edge != nullptr">{{x={stop_x,g}, wind_dx={wind_dx}, edge {*edge} }}</DisplayString>
+    <DisplayString Condition="edge == nullptr">{{x={stop_x,g}, wind_dx={wind_dx}}}</DisplayString>
     <Expand>
       <CustomListItems MaxItemsPerView="5000" ExcludeView="Test">
         <Variable Name="next" InitialValue="next_in_obl" />
