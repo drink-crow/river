@@ -185,6 +185,7 @@ namespace vatti
         void update_bound(out_bound* bound, edge* new_edge);
         out_bound* new_bound();
         void delete_obl_bound(out_bound*);
+        edge* do_maxima(edge* e);
         edge* delete_active_edge(edge*);
 
         clip_type cliptype_ = clip_type::intersection;

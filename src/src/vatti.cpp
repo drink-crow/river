@@ -46,6 +46,8 @@ namespace vatti
         return e->local_min->polytype;
     }
 
+    inline bool is_horz(const edge* e) { return e->bot.y == e->top.y; }
+
     inline bool is_open(const edge* e) { return false; }
 
     inline bool is_maxima(const edge* e) { return (e->vertex_top->flags 
@@ -112,6 +114,12 @@ namespace vatti
     vertex* next_vertex(const edge* e) {
         if (e->is_up()) return e->vertex_top->next;
         else return e->vertex_top->prev;
+    }
+
+    void next(edge* e) {
+        e->vertex_top = next_vertex(e);
+        e->bot = e->top;
+        e->top = e->vertex_top->pt;
     }
 
     void clipper::reset()
@@ -530,6 +538,8 @@ namespace vatti
             left_bound->wind_dx_all = left_bound->wind_dx;
             left_bound->top = left_bound->vertex_top->pt;
             left_bound->local_min = local_minima;
+            while (is_horz(left_bound)) next(left_bound);
+
             set_direction(left_bound);
 
             right_bound = new edge();
@@ -540,6 +550,7 @@ namespace vatti
             right_bound->wind_dx_all = right_bound->wind_dx;
             right_bound->top = right_bound->vertex_top->pt;
             right_bound->local_min = local_minima;
+            while (is_horz(right_bound)) next(right_bound);
             set_direction(right_bound);
 
             if (left_bound->dx > right_bound->dx) {
@@ -958,20 +969,26 @@ namespace vatti
 
                 last_x = e->curr_x;
                 if (is_maxima(e)) {
-                    if (is_hot(e)) {
-                        e->bound->edge = nullptr;
-                        e->bound = nullptr;
-                    }
-                    e = delete_active_edge(e);
+                    e = do_maxima(e);
                     continue;
                 }
 
-                // ToDo 需要跳过水平线
-                e->vertex_top = next_vertex(e);
-                e->bot = e->top;
-                e->top = e->vertex_top->pt;
-                insert_scanline(e->top.y);
-                e = e->next_in_ael;
+                while(true)
+                {
+                    next(e);
+                    if (is_horz(e)) {
+                        windcnt_change_list.push_back(e->top.x);
+                        if (is_maxima(e)) {
+                            e = do_maxima(e);
+                            continue;
+                        }
+                    }
+                    else {
+                        insert_scanline(e->top.y);
+                        e = e->next_in_ael;
+                        continue;
+                    }
+                }
             }
             else {
                 update_intermediate_curr_x(e, y);
@@ -1189,6 +1206,16 @@ namespace vatti
         if (next) next->prev_in_obl = prev;
 
         delete b;
+    }
+
+    // return next edge in ael
+    edge* clipper::do_maxima(edge* e)
+    {
+        if (is_hot(e)) {
+            e->bound->edge = nullptr;
+            e->bound = nullptr;
+        }
+        return delete_active_edge(e);
     }
 
     edge* clipper::delete_active_edge(edge* e)
