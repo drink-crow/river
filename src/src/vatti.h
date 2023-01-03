@@ -163,7 +163,7 @@ namespace vatti
         void add_local_min(vertex* vert, PathType pt, bool is_open);
         void reset();
         void insert_scanline(num y);
-        bool pop_scanline(num& y);
+        bool pop_scanline(num old_y, num& new_y);
         bool pop_local_minima(num y, local_minima** out);
         void insert_local_minima_to_ael(num y);
         void recalc_windcnt();

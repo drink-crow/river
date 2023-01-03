@@ -328,7 +328,7 @@ namespace vatti
         reset();
 
         num y;
-        if (!pop_scanline(y)) return;
+        if (!pop_scanline(y, y)) return;
 
         while (true)
         {
@@ -337,7 +337,7 @@ namespace vatti
             //while (pop_horz(&e)) do_horizontal(e);
             recalc_windcnt();
             update_ouput_bound(y);
-            if (!pop_scanline(y)) break;  // y new top of scanbeam
+            if (!pop_scanline(y, y)) break;  // y new top of scanbeam
             do_top_of_scanbeam(y);
             close_output(y);
             resort_ael(y);
@@ -501,12 +501,19 @@ namespace vatti
         mem->flags = vertex_flags::none;
     }
 
-    bool clipper::pop_scanline(num& y)
+    bool clipper::pop_scanline(num old_y, num& new_y)
     {
         if (scanline_list.empty()) return false;
-        y = scanline_list.top();
+        new_y = scanline_list.top();
         scanline_list.pop();
-        while (!scanline_list.empty() && y == scanline_list.top())
+
+        while (new_y == old_y) {
+            if (scanline_list.empty()) return false;
+            new_y = scanline_list.top();
+            scanline_list.pop();
+        }
+
+        while (!scanline_list.empty() && new_y == scanline_list.top())
             scanline_list.pop();  // Pop duplicates.
         return true;
     }
@@ -572,12 +579,14 @@ namespace vatti
         for (auto x : windcnt_change_list)
         {
             while (curr_e) {
-                if (curr_e->curr_x != x) {
+                if (curr_e->curr_x < x) {
                     curr_e = curr_e->next_in_ael;
                     continue;
                 }
-
-                 curr_e = calc_windcnt(curr_e);
+                else if (curr_e->curr_x > x) {
+                    break;
+                }
+                else {  curr_e = calc_windcnt(curr_e); }
             }
         }
     }
@@ -729,7 +738,7 @@ namespace vatti
         }
         auto curr_b = obl_first;
         while (curr_b) {
-            sbl.push_back({ nullptr, curr_b, curr_b->edge->curr_x, sbl.size() });
+            sbl.push_back({ nullptr, curr_b, curr_b->stop_x, sbl.size() });
             curr_b = curr_b->next_in_obl;
         }
         sbl.sort(
@@ -775,7 +784,10 @@ namespace vatti
         // 解散旧的 obl，构造新的 obl
         // 按道理来说，旧的 obl 中的 out_bound 已经完全更新，直接构造新的 obl 即可
         {
-            if (bound_edge.empty()) return;
+            if (bound_edge.empty()) {
+                obl_first = nullptr;
+                return;
+            }
             auto it = bound_edge.begin();
             obl_first = it->edge->bound;
             obl_first->prev_in_obl = nullptr; obl_first->next_in_obl = nullptr;
@@ -937,6 +949,7 @@ namespace vatti
 
     void clipper::insert_scanline(num y)
     {
+
         scanline_list.push(y);
     }
 
@@ -971,19 +984,20 @@ namespace vatti
                 }
 
                 next(e);
+
                 while(e)
                 {
                     if (is_horz(e)) {
                         insert_windcnt_change(e->top.x);
                         if (is_maxima(e)) {
                             e = do_maxima(e);
-                            continue;
+                            break;
                         }
                     }
                     else {
                         insert_scanline(e->top.y);
                         e = e->next_in_ael;
-                        continue;
+                        break;
                     }
                     next(e);
                 }
