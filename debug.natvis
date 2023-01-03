@@ -1,12 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
-    <Type Name="rmath::vec2">
-        <DisplayString>{x,g}, {y,g}</DisplayString>
-    </Type>
-    <Type Name="dcel::point">
-        <DisplayString>{{{p}}}</DisplayString>
-    </Type>
-    <Type Name="dcel::half_edge">
-      <DisplayString>{*start}, {*end}</DisplayString>
-    </Type>
+  <Type Name="rmath::vec2">
+    <DisplayString>{x,g}, {y,g}</DisplayString>
+  </Type>
+  <Type Name="dcel::point">
+    <DisplayString>{{{p}}}</DisplayString>
+  </Type>
+  <Type Name="dcel::half_edge">
+    <DisplayString>{*start}, {*end}</DisplayString>
+  </Type>
+  <Type Name="vatti::break_info">
+    <DisplayString>{vert->pt}, {t}, {break_point}, {vert->next_seg}</DisplayString>
+  </Type>
+  <Type Name="vatti::edge">
+    <DisplayString>{{bot{{{bot}}}, top{{{top}}}, x={curr_x,g}, wc={wind_cnt}, wc2={wind_cnt2}}}</DisplayString>
+    <Expand>
+      <CustomListItems MaxItemsPerView="5000" ExcludeView="Test">
+        <Variable Name="next" InitialValue="next_in_ael" />
+        <Loop>
+          <Break Condition="next == nullptr" />
+          <Item>*next</Item>
+          <Exec>next = next->next_in_ael</Exec>
+        </Loop>
+      </CustomListItems>
+    </Expand>
+  </Type>
+  <Type Name="vatti::out_bound">
+    <DisplayString>{{x={stop_x,g},edge{{{edge}}}}}</DisplayString>
+    <Expand>
+      <CustomListItems MaxItemsPerView="5000" ExcludeView="Test">
+        <Variable Name="next" InitialValue="next_in_obl" />
+        <Loop>
+          <Break Condition="next == nullptr" />
+          <Item>*next</Item>
+          <Exec>next = next->next_in_obl</Exec>
+        </Loop>
+      </CustomListItems>
+    </Expand>
+  </Type>
 </AutoVisualizer>

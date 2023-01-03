@@ -380,8 +380,11 @@ namespace vatti
 
         // 处理得到的打断信息
 
-        std::sort(break_info_list.begin(), break_info_list.end(), 
-            [](break_info const& l, break_info const& r) {return l.vert < r.vert; });
+        std::sort(break_info_list.begin(), break_info_list.end(),
+            [](break_info const& l, break_info const& r) {
+                if (l.vert != r.vert) return l.vert < r.vert;
+                return l.t < r.t; 
+            });
         break_info_list.erase(std::unique(break_info_list.begin(), break_info_list.end()), break_info_list.end());
 
         auto start = break_info_list.begin();
@@ -406,19 +409,6 @@ namespace vatti
                 std::vector<break_info> cur_break_list(start, end);
                 auto dx = end_p.x >= start_p.x;
                 auto dy = end_p.y >= start_p.y;
-                std::sort(cur_break_list.begin(), cur_break_list.end(),
-                    [dx, dy](break_info const& li, break_info const& ri) {
-                        auto l = li.break_point;
-                        auto r = ri.break_point;
-
-                        if (dx && r.x < l.x) return true;
-                        if ((!dx) && r.x > l.x) return true;
-                        if (dy && r.y < l.y) return true;
-                        if ((!dy) && r.y > l.y) return true;
-
-                        return false;
-                    });
-
                 ((Seg_lineto*)start_seg)->target = cur_break_list[0].break_point;
                 auto next = new_vertex();
                 set_segment(start_v, next, start_seg);
@@ -530,7 +520,6 @@ namespace vatti
         {
             left_bound = new edge();
             left_bound->bot = local_minima->vert->pt;
-            left_bound->curr_x = left_bound->bot.x;
             // 这里确定一条边的朝向很简单，因为是 local minima，所以总是有以上一下，所以我们直接设定一条为vert->next
             // 则它的朝向肯定就是朝上的
             left_bound->vertex_top = local_minima->vert->prev;  // ie descending
@@ -538,22 +527,32 @@ namespace vatti
             left_bound->wind_dx_all = left_bound->wind_dx;
             left_bound->top = left_bound->vertex_top->pt;
             left_bound->local_min = local_minima;
-            while (is_horz(left_bound)) next(left_bound);
+            insert_windcnt_change(left_bound->bot.x);
+            while (is_horz(left_bound)) { 
+                next(left_bound); 
+                insert_windcnt_change(left_bound->bot.x);
+            }
+            left_bound->curr_x = left_bound->bot.x;
 
             set_direction(left_bound);
 
             right_bound = new edge();
             right_bound->bot = local_minima->vert->pt;
-            right_bound->curr_x = right_bound->bot.x;
             right_bound->vertex_top = local_minima->vert->next;  // ie ascending
             right_bound->wind_dx = -1;
             right_bound->wind_dx_all = right_bound->wind_dx;
             right_bound->top = right_bound->vertex_top->pt;
             right_bound->local_min = local_minima;
-            while (is_horz(right_bound)) next(right_bound);
+            insert_windcnt_change(right_bound->bot.x);
+            while (is_horz(right_bound)) {
+                next(right_bound);
+                insert_windcnt_change(right_bound->bot.x);
+            }
+            right_bound->curr_x = right_bound->bot.x;
+
             set_direction(right_bound);
 
-            if (left_bound->dx > right_bound->dx) {
+            if (left_bound->top.x > right_bound->top.x) {
                 std::swap(left_bound, right_bound);
             }
 
@@ -561,8 +560,6 @@ namespace vatti
             insert_into_ael(left_bound, right_bound);
             insert_scanline(left_bound->top.y);
             insert_scanline(right_bound->top.y);
-
-            push_windcnt_change(left_bound->bot.x);
         }
     }
 
@@ -680,6 +677,11 @@ namespace vatti
         if (curr_e && curr_e->is_same_with_prev) curr_e = curr_e->next_in_ael;
 
         return curr_e;
+    }
+
+    void clipper::insert_windcnt_change(num x)
+    {
+        windcnt_change_list.push_back(x);
     }
 
     void clipper::update_ouput_bound(num y)
@@ -867,11 +869,6 @@ namespace vatti
         return true;
     }
 
-    void clipper::push_windcnt_change(num x)
-    {
-        windcnt_change_list.push_back(x);
-    }
-
     void clipper::insert_into_ael(edge* newcomer)
     {
         if (!ael_first) {
@@ -952,7 +949,7 @@ namespace vatti
         {
             if (e->top.y == y) {
                 e->curr_x = e->top.x;
-                if (e->curr_x == last_x) windcnt_change_list.push_back(last_x);
+                if (e->curr_x == last_x) insert_windcnt_change(last_x);
                 if (is_hot(e)) {
                     auto b = e->bound;
                     bool reverse = e->is_up() != b->is_up();
@@ -973,11 +970,11 @@ namespace vatti
                     continue;
                 }
 
-                while(true)
+                next(e);
+                while(e)
                 {
-                    next(e);
                     if (is_horz(e)) {
-                        windcnt_change_list.push_back(e->top.x);
+                        insert_windcnt_change(e->top.x);
                         if (is_maxima(e)) {
                             e = do_maxima(e);
                             continue;
@@ -988,12 +985,13 @@ namespace vatti
                         e = e->next_in_ael;
                         continue;
                     }
+                    next(e);
                 }
             }
             else {
                 update_intermediate_curr_x(e, y);
                 if (is_hot(e)) e->bound->stop_x = e->curr_x;
-                if (e->curr_x == last_x) windcnt_change_list.push_back(last_x);
+                if (e->curr_x == last_x) insert_windcnt_change(last_x);
                 last_x = e->curr_x;
                 e = e->next_in_ael;
             }

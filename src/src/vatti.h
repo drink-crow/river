@@ -170,11 +170,11 @@ namespace vatti
         void update_ouput_bound(num y);
         bool is_contributing(edge* e);
         edge* calc_windcnt(edge* e);
+        void insert_windcnt_change(num x);
         void insert_into_ael(edge* newcomer);
         void insert_into_ael(edge* left, edge* newcomer);
         void take_from_ael(edge*);
         bool is_valid_ael_order(const edge* resident, const edge* newcomer) const;
-        void push_windcnt_change(num x);
         void set_windcount_closed(edge* e);
         void do_top_of_scanbeam(num y);
         void close_output(num y);
