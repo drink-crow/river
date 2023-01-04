@@ -97,6 +97,11 @@ namespace vatti
         return res;
     }
 
+    Seg* get_seg(const edge* e) {
+        Point unuse;
+        return get_seg(e, unuse);
+    }
+
     Seg* copy_seg(const edge* e, bool reverse = false) {
         Point from;
         Seg* res = get_seg(e, from)->deep_copy();
@@ -922,6 +927,7 @@ namespace vatti
         if (next) next->prev_in_ael = newcomer;
         newcomer->prev_in_ael = resident;
         resident->next_in_ael = newcomer;
+        set_is_same_with_prev(newcomer);
     }
 
     void clipper::take_from_ael(edge* e)
@@ -935,6 +941,30 @@ namespace vatti
 
         e->prev_in_ael = nullptr;
         e->next_in_ael = nullptr;
+    }
+
+    void clipper::set_is_same_with_prev(edge* e)
+    {
+        e->is_same_with_prev = false;
+        auto prev = e->prev_in_ael;
+        if (!prev) {
+            return;
+        }
+        auto cur_seg = get_seg(e);
+        auto prev_seg = get_seg(e);
+        if (e->bot == prev->bot && e->top == prev->top && cur_seg->get_type() == prev_seg->get_type()) {
+            switch (cur_seg->get_type())
+            {
+            case SegType::LineTo:
+                e->is_same_with_prev = true;
+                break;
+            default:
+                // ToDo 增加别的曲线类型的判断
+                break;
+            }
+        
+        }
+
     }
 
     bool clipper::is_valid_ael_order(const edge* resident, const edge* newcomer) const
