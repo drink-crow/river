@@ -127,6 +127,27 @@ namespace vatti
         e->top = e->vertex_top->pt;
     }
 
+    bool is_same(const edge* a, const edge* b)
+    {
+        auto a_seg = get_seg(a);
+        auto b_seg = get_seg(b);
+        if (a->bot == b->bot && a->top == b->top 
+            && a_seg->get_type() == b_seg->get_type()) {
+            switch (a_seg->get_type())
+            {
+            case SegType::LineTo:
+                return true;
+                break;
+            default:
+                // ToDo 增加别的曲线类型的判断
+                break;
+            }
+
+        }
+
+        return false;
+    }
+
     void clipper::reset()
     {
         // build init scan line list
@@ -536,9 +557,9 @@ namespace vatti
             // 则它的朝向肯定就是朝上的
             left_bound->vertex_top = local_minima->vert->prev;  // ie descending
             left_bound->wind_dx = 1;
-            left_bound->wind_dx_all = left_bound->wind_dx;
             left_bound->top = left_bound->vertex_top->pt;
             left_bound->local_min = local_minima;
+            left_bound->bound = nullptr;
             insert_windcnt_change(left_bound->bot.x);
             while (is_horz(left_bound)) { 
                 next(left_bound); 
@@ -552,9 +573,9 @@ namespace vatti
             right_bound->bot = local_minima->vert->pt;
             right_bound->vertex_top = local_minima->vert->next;  // ie ascending
             right_bound->wind_dx = -1;
-            right_bound->wind_dx_all = right_bound->wind_dx;
             right_bound->top = right_bound->vertex_top->pt;
             right_bound->local_min = local_minima;
+            right_bound->bound = nullptr;
             insert_windcnt_change(right_bound->bot.x);
             while (is_horz(right_bound)) {
                 next(right_bound);
@@ -594,35 +615,25 @@ namespace vatti
                 else {  
                     if (curr_e->bound) curr_e->bound->edge = nullptr;
                     curr_e->bound = nullptr;
-                    curr_e = calc_windcnt(curr_e); 
+                    calc_windcnt(curr_e); 
+                    curr_e = curr_e->next_in_ael;
                 }
             }
         }
     }
 
-    edge* clipper::calc_windcnt(edge* curr_e)
+    void clipper::calc_windcnt(edge* curr_e)
     {
         edge* left = curr_e->prev_in_ael;
         PathType pt = get_polytype(curr_e);
         while (left && (get_polytype(left) != pt || is_open(left))) left = left->prev_in_ael;
 
-        // 获取所有 curr_e 后面 is_same_with_prev 的 wind_dx 的集合
-        int wind_dx = curr_e->wind_dx;
-        {
-            edge* next = curr_e->next_in_ael;
-            while (next && next->is_same_with_prev && get_polytype(next) == pt) {
-                wind_dx += next->wind_dx;
-                next = next->next_in_ael;
-            }
-            curr_e->wind_dx_all = wind_dx;
-        }
-
         if (!left) {
-            curr_e->wind_cnt = wind_dx;
+            curr_e->wind_cnt = curr_e->wind_dx;
             left = ael_first;
         }
         else if (fillrule_ == fill_rule::even_odd) {
-            curr_e->wind_cnt = curr_e->wind_dx_all;
+            curr_e->wind_cnt = curr_e->wind_dx;
             curr_e->wind_cnt2 = left->wind_cnt2;
             left = left->next_in_ael;
         }
@@ -631,70 +642,52 @@ namespace vatti
             //if e's WindCnt is in the SAME direction as its WindDx, then polygon
             //filling will be on the right of 'e'.
             //NB neither e2.WindCnt nor e2.WindDx should ever be 0.
-            if (left->wind_cnt * left->wind_dx_all < 0)
+            if (left->wind_cnt * left->wind_dx < 0)
             {
                 //opposite directions so 'e' is outside 'left' ...
                 if (abs(left->wind_cnt) > 1)
                 {
                     //outside prev poly but still inside another.
-                    if (left->wind_dx_all * curr_e->wind_dx_all < 0)
+                    if (left->wind_dx * curr_e->wind_dx < 0)
                         //reversing direction so use the same WC
                         curr_e->wind_cnt = left->wind_cnt;
                     else
                         //otherwise keep 'reducing' the WC by 1 (ie towards 0) ...
-                        curr_e->wind_cnt = left->wind_cnt + curr_e->wind_dx_all;
+                        curr_e->wind_cnt = left->wind_cnt + curr_e->wind_dx;
                 }
                 else
                     //now outside all polys of same polytype so set own WC ...
-                    curr_e->wind_cnt = (is_open(curr_e) ? 1 : curr_e->wind_dx_all);
+                    curr_e->wind_cnt = (is_open(curr_e) ? 1 : curr_e->wind_dx);
             }
             else
             {
                 //'e' must be inside 'left'
-                if (left->wind_dx_all * curr_e->wind_dx_all < 0)
+                if (left->wind_dx * curr_e->wind_dx < 0)
                     //reversing direction so use the same WC
                     curr_e->wind_cnt = left->wind_cnt;
                 else
                     //otherwise keep 'increasing' the WC by 1 (ie away from 0) ...
-                    curr_e->wind_cnt = left->wind_cnt + curr_e->wind_dx_all;
+                    curr_e->wind_cnt = left->wind_cnt + curr_e->wind_dx;
             }
             curr_e->wind_cnt2 = left->wind_cnt2;
             left = left->next_in_ael;  // ie get ready to calc WindCnt2
         }
 
         //update wind_cnt2 ...
-        // ToDo 这里还要计算不同 path_type 重合的边
-        if (fillrule_ == fill_rule::even_odd)
-            while (left != curr_e)
-            {
+        if (fillrule_ == fill_rule::even_odd) {
+            while (left != curr_e) {
                 if (get_polytype(left) != pt && !is_open(left))
                     curr_e->wind_cnt2 = (curr_e->wind_cnt2 == 0 ? 1 : 0);
                 left = left->next_in_ael;
             }
-        else
-            while (left != curr_e)
-            {
+        }
+        else {
+            while (left != curr_e) {
                 if (get_polytype(left) != pt && !is_open(left))
-                    curr_e->wind_cnt2 += left->wind_dx_all;
+                    curr_e->wind_cnt2 += left->wind_dx;
                 left = left->next_in_ael;
             }
-
-        {
-            edge* next = curr_e->next_in_ael;
-            while (next && next->is_same_with_prev && get_polytype(next) == pt) {
-                {
-                    next->wind_dx_all = curr_e->wind_dx_all;
-                    next->wind_cnt = curr_e->wind_cnt;
-                    next->wind_cnt2 = curr_e->wind_cnt2;
-                }
-            }
-            curr_e->wind_dx_all = wind_dx;
         }
-
-        curr_e = curr_e->next_in_ael;
-        if (curr_e && curr_e->is_same_with_prev) curr_e = curr_e->next_in_ael;
-
-        return curr_e;
     }
 
     void clipper::insert_windcnt_change(num x)
@@ -712,11 +705,17 @@ namespace vatti
             bool is_done = false;
         };
         std::vector<new_bound> bound_edge;
+        // 开始构建新的输出
         auto e = ael_first;
         while (e) {
-            if (is_contributing(e)) { bound_edge.push_back({ e, false }); }
+            if (is_contributing(e)) { 
+                // ToDo 这里需要验证是否一上一下
+                if (!bound_edge.empty() && is_same(e, bound_edge.back().edge))
+                    bound_edge.pop_back();
+                else 
+                    bound_edge.push_back({ e, false });
+            }
             e = e->next_in_ael;
-            while (e && e->is_same_with_prev) {  e = e->next_in_ael; }
         }
 
         // 下部早已合并，现在来合并上部可以合并的，依旧是只合并 curr_x 重合的左右边
@@ -905,6 +904,7 @@ namespace vatti
             newcomer->next_in_ael = ael_first;
             ael_first->prev_in_ael = newcomer;
             ael_first->next_in_ael = nullptr;
+            ael_first = newcomer;
         }
         else {
             // find last position can insert
@@ -927,7 +927,6 @@ namespace vatti
         if (next) next->prev_in_ael = newcomer;
         newcomer->prev_in_ael = resident;
         resident->next_in_ael = newcomer;
-        set_is_same_with_prev(newcomer);
     }
 
     void clipper::take_from_ael(edge* e)
@@ -941,30 +940,6 @@ namespace vatti
 
         e->prev_in_ael = nullptr;
         e->next_in_ael = nullptr;
-    }
-
-    void clipper::set_is_same_with_prev(edge* e)
-    {
-        e->is_same_with_prev = false;
-        auto prev = e->prev_in_ael;
-        if (!prev) {
-            return;
-        }
-        auto cur_seg = get_seg(e);
-        auto prev_seg = get_seg(e);
-        if (e->bot == prev->bot && e->top == prev->top && cur_seg->get_type() == prev_seg->get_type()) {
-            switch (cur_seg->get_type())
-            {
-            case SegType::LineTo:
-                e->is_same_with_prev = true;
-                break;
-            default:
-                // ToDo 增加别的曲线类型的判断
-                break;
-            }
-        
-        }
-
     }
 
     bool clipper::is_valid_ael_order(const edge* resident, const edge* newcomer) const
@@ -1198,14 +1173,14 @@ namespace vatti
         up->owner = output;
         up->edge = a;
         a->bound = up;
-        up->wind_dx = a->wind_dx_all;
+        up->wind_dx = a->wind_dx;
         up->stop_x = a->curr_x;
 
         auto down = new_bound();
         down->owner = output;
         down->edge = b;
         b->bound = down;
-        down->wind_dx = b->wind_dx_all;
+        down->wind_dx = b->wind_dx;
         down->stop_x = b->curr_x;
 
         if (!up->is_up()) {

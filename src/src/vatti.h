@@ -131,7 +131,6 @@ namespace vatti
         // ToDo 单 double 不足以表示曲线内容走向和斜率
         double dx = 0.;
         int wind_dx = 1; // 1 = up, -1 = down
-        int wind_dx_all = 1;
         int wind_cnt = 0; // 表示环绕方向左边区域的环绕数
         int wind_cnt2 = 0; //winding count of the opposite polytype
 
@@ -141,9 +140,6 @@ namespace vatti
 
         vertex* vertex_top = nullptr;
         local_minima* local_min = nullptr;
-
-        // 形状和前一条 ael 中的 edge 完全相同，无论 path_type
-        bool is_same_with_prev = false;
 
         inline bool is_up() const { return wind_dx < 0; }
     };
@@ -169,12 +165,11 @@ namespace vatti
         void recalc_windcnt();
         void update_ouput_bound(num y);
         bool is_contributing(edge* e);
-        edge* calc_windcnt(edge* e);
+        void calc_windcnt(edge* e);
         void insert_windcnt_change(num x);
         void insert_into_ael(edge* newcomer);
         void insert_into_ael(edge* left, edge* newcomer);
         void take_from_ael(edge*);
-        void set_is_same_with_prev(edge*);
         bool is_valid_ael_order(const edge* resident, const edge* newcomer) const;
         void set_windcount_closed(edge* e);
         void do_top_of_scanbeam(num y);
