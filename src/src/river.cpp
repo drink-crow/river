@@ -48,6 +48,19 @@ namespace river
         return SegType::CubicTo;
     }
 
+    double Seg_cubicto::curr_x(const Point& from, double y) const
+    {
+        auto cubic = get_cubic(from);
+        auto res = cubic.point_at_y(y);
+        if (res.count == 1) {
+            return cubic.point_at(res.t[0]).x;
+        }
+        else {
+            return (target.x - from.x) * (y - from.y) / (target.y - from.y) + from.x;
+        }
+
+    }
+
     void empty_path_move_func(path_moveto_func_para) {}
     void empty_path_line_func(path_lineto_func_para) {}
     void empty_path_arc_func(path_arcto_func_para) {}

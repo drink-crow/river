@@ -66,7 +66,7 @@ using rmath::rect;
             target = from;
         }
         virtual double curr_x(const Point& from, double y) const override {
-            return (target.x - from.x) * (y - from.y) + target.x;
+            return (target.x - from.x) * (y - from.y) / (target.y - from.y) +from.x;
         }
     };
 
@@ -93,7 +93,7 @@ using rmath::rect;
         }
         virtual double curr_x(const Point& from, double y) const override {
             // ToDo 需要修正计算
-            return (target.x - from.x) * (y - from.y) + target.x;
+            return (target.x - from.x) * (y - from.y) / (target.y - from.y) + from.x;
         }
     };
 
@@ -120,10 +120,7 @@ using rmath::rect;
             target = from;
             std::swap(ctrl_Point1, ctrl_Point2);
         }
-        virtual double curr_x(const Point& from, double y) const override {
-            // ToDo 需要修正计算
-            return (target.x - from.x) * (y - from.y) + target.x;
-        }
+        virtual double curr_x(const Point& from, double y) const override;
     };
 
 #define path_moveto_func_para const Point& from, const Point& to, void* user

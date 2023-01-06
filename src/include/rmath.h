@@ -61,6 +61,7 @@ namespace rmath
         rect() = default;
         rect(const point_type& p):min(p),max(p){}
         rect(const point_type& _min, const point_type& _max) : min(_min), max(_max) {}
+        bool intersect(const rect& r) const;
 
         static rect from(std::initializer_list<point_type> _Ilist)
         {
@@ -93,11 +94,17 @@ namespace rmath
         void general_from(double* out_A, double* out_B, double* out_C) const;
     };
 
+    struct point_at_y_result {
+        int count = 0; // at most 3
+        double t[3];
+    };
+
     struct bezier_cubic
     {
         vec2 p0, p1, p2, p3;
 
         [[nodiscard]] vec2 point_at(double t) const;
+        [[nodiscard]] point_at_y_result point_at_y(double y) const;
         [[nodiscard]] rect get_boundary() const;
         // 分离出的每一部分在 y 轴上单调
         [[nodiscard]]int split_y(double* t1, double* t2) const;
@@ -142,5 +149,11 @@ namespace rmath
     // 数据中 t0 是 segment 的，t1 是curve的
     [[nodiscard]] line_cubic_intersect_result intersect(const line& segment, const bezier_cubic& curve);
 
-    
+    struct cubic_intersect_result {
+        int count = 0; // 最多9个交点
+        intersect_info data[9];
+    };
+    // precise 用与控制结果 t 的有效位数
+    [[nodiscard]] cubic_intersect_result intersect(const bezier_cubic& b1, const bezier_cubic& b2, int precise = 25);
+
 }

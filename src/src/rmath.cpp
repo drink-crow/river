@@ -7,8 +7,48 @@ namespace rmath
         return -err < v && v < err;
     }
 
+    bool rect::intersect(const rect& r) const
+    {
+        return !(max.x < r.min.x || min.x > r.max.x
+            || max.y < r.min.y || min.y > r.max.y);
+    }
+
+    point_at_y_result bezier_cubic::point_at_y(double y) const
+    {
+        point_at_y_result res;
+        res.count = 0;
+
+        /*
+        有直线 y + C = 0 和 bezier曲线 P = f(t), 则有
+        fy(t) + C = 0
+        为一元三次方程组，解方程即可
+        */
+        const vec2 t3 = p3 - 3 * p2 + 3 * p1 - p0;
+        const vec2 t2 = 3 * p2 - 6 * p1 + 3 * p0;
+        const vec2 t1 = 3 * p1 - 3 * p0;
+        const vec2 t0 = p0;
+
+        double C = -y;
+
+        const double a3 = t3.y;
+        const double a2 = t2.y;
+        const double a1 = t1.y;
+        const double a0 = t0.y + C;
+
+        auto cubic_res = resolv_cubic_equa(a3, a2, a1, a0);
+        for (auto i = 0; i < cubic_res.count; ++i) {
+            auto t = cubic_res.data[i];
+            if (0 <= t && t <= 1) {
+                res.t[res.count] = t;
+                res.count += 1;
+            }
+        }
+
+        return res;
+    }
+
     vec2 operator*(double sc, const vec2& v) { return v * sc; }
-    double rmath::dist2_point_line(const vec2& p, const vec2& l0, const vec2& l1) {
+    double dist2_point_line(const vec2& p, const vec2& l0, const vec2& l1) {
         vec2 AC, D;
         AC = p - l0;
         vec2 AB = l1 - l0;
@@ -29,7 +69,7 @@ namespace rmath
     }
 
     // 计算点投影到（有限长）线段的点是否位于线段内
-    bool rmath::point_project_in_segment(const vec2& p, const vec2& p0, const vec2& p1)
+    bool point_project_in_segment(const vec2& p, const vec2& p0, const vec2& p1)
     {
         if (p1 == p0) {
             return p == p0;
@@ -607,4 +647,85 @@ namespace rmath
         return res;
     }
 
+    inline rect rough_rect(const bezier_cubic& b) {
+        return rect::from({ b.p0, b.p1, b.p2, b.p3 });
+    }
+
+    struct data
+    {
+        bezier_cubic bezier;
+        rect rect;
+        double t0 = 0;
+        double t1 = 1;
+        int recurse = 0;
+
+        inline void subdive(data& out1, data out2) const
+        {
+            bezier.split(0.5, &out1.bezier, &out2.bezier);
+            out1.rect = rough_rect(out1.bezier);
+            out1.t0 = t0;
+            out1.t1 = (t0 + t1) / 2;
+            out1.recurse = recurse + 1;
+            out2.rect = rough_rect(out2.bezier);
+            out2.t0 = out1.t1;
+            out2.t1 = t1;
+            out2.recurse = recurse + 1;
+        }
+    };
+
+    // 使用bound计算近似轮廓，不计算自交内容
+    cubic_intersect_result intersect(const bezier_cubic& b1, const bezier_cubic& b2, int precise)
+    {
+        cubic_intersect_result res;
+        res.count = 0;
+
+
+        typedef std::pair<data, data> data_pair;
+        std::vector<data_pair> pairs;
+        std::vector<data_pair> intersect_pair;
+
+        data p1{ b1,rough_rect(b1),0,1,0 };
+        data p2{ b2,rough_rect(b2),0,1,0 };
+        if (!p1.rect.intersect(p2.rect)) return res;
+
+        pairs.push_back(data_pair(p1, p2));
+        while (!pairs.empty()) {
+            auto back = pairs.back();
+            pairs.pop_back();
+
+            data p11, p12, p21, p22;
+            p1.subdive(p11, p11);
+            p2.subdive(p21, p22);
+
+            constexpr auto check_func = [](const data& p0, const data& p1, int precise, 
+                decltype(pairs)& next_out, decltype(intersect_pair)& intersect_out) {
+                if (p0.rect.intersect(p1.rect)) {
+                    if (p0.recurse > precise)
+                        intersect_out.push_back(data_pair(p0, p1));
+                    else
+                        next_out.push_back(data_pair(p0, p1));
+                }
+            };
+
+            check_func(p11, p21, precise, pairs, intersect_pair);
+            check_func(p11, p22, precise, pairs, intersect_pair);
+            check_func(p12, p21, precise, pairs, intersect_pair);
+            check_func(p12, p22, precise, pairs, intersect_pair);
+        }
+
+        std::sort(intersect_pair.begin(), intersect_pair.end(),
+            [](const data_pair& l, const data_pair& r) {
+                return l.first.t0 < r.first.t0;
+            });
+
+        for (int i = 0; i < intersect_pair.size() && i < 9; ++i) {
+            auto& p = intersect_pair[i];
+            res.data[i].t0 = (p.first.t0 + p.first.t1) / 2;
+            res.data[i].t1 = (p.second.t0 + p.second.t1) / 2;
+            res.data[i].p = b1.point_at(res.data[i].t0);
+            res.count += 1;
+        }
+
+        return res;
+    }
 }

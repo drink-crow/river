@@ -152,8 +152,8 @@ namespace vatti
         void process(clip_type operation, fill_rule fill, Paths& output);
 
         void intersect(vertex* const & r, vertex* const& l);
-        void process_intersect();
     private:
+        void process_intersect();
         vertex* new_vertex();
         void set_segment(vertex* prev, vertex* mem, Seg* move_seg);
         void add_local_min(vertex* vert, PathType pt, bool is_open);

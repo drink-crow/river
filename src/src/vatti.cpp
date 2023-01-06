@@ -168,17 +168,6 @@ namespace vatti
 
     void clipper::add_path(const Paths& paths, PathType polytype, bool is_open)
     {
-        size_t total_vertex_count = 0;
-        for (auto& path : paths)
-        {
-            if (path.data.size() >= 2) {
-                if (is_vaild(path)) {
-                    // auto close
-                    total_vertex_count += path.data.size() + 1;
-                }
-            }
-        }
-
         for (auto& path : paths)
         {
             if (!is_vaild(path)) continue;
@@ -277,7 +266,6 @@ namespace vatti
 #endif
 
             // form local minma
-
             bool going_down, going_down0;
             {
                 bool total_horz = true;
@@ -359,15 +347,12 @@ namespace vatti
         while (true)
         {
             insert_local_minima_to_ael(y);
-            //edge* e;
-            //while (pop_horz(&e)) do_horizontal(e);
             recalc_windcnt();
             update_ouput_bound(y);
             if (!pop_scanline(y, y)) break;  // y new top of scanbeam
             do_top_of_scanbeam(y);
             close_output(y);
             resort_ael(y);
-            //while (pop_horz(&e)) do_horizontal(e);
         }
 
         if (succeeded_) {
@@ -547,52 +532,45 @@ namespace vatti
     void clipper::insert_local_minima_to_ael(num y)
     {
         local_minima* local_minima;
-        edge* left_bound, * right_bound;
+        edge* a, * b;
 
         while (pop_local_minima(y, &local_minima))
         {
-            left_bound = new edge();
-            left_bound->bot = local_minima->vert->pt;
+            a = new edge();
+            a->bot = local_minima->vert->pt;
             // 这里确定一条边的朝向很简单，因为是 local minima，所以总是有以上一下，所以我们直接设定一条为vert->next
             // 则它的朝向肯定就是朝上的
-            left_bound->vertex_top = local_minima->vert->prev;  // ie descending
-            left_bound->wind_dx = 1;
-            left_bound->top = left_bound->vertex_top->pt;
-            left_bound->local_min = local_minima;
-            left_bound->bound = nullptr;
-            insert_windcnt_change(left_bound->bot.x);
-            while (is_horz(left_bound)) { 
-                next(left_bound); 
-                insert_windcnt_change(left_bound->bot.x);
+            a->vertex_top = local_minima->vert->prev;  // ie descending
+            a->wind_dx = 1;
+            a->top = a->vertex_top->pt;
+            a->local_min = local_minima;
+            a->bound = nullptr;
+            insert_windcnt_change(a->bot.x);
+            while (is_horz(a)) { 
+                next(a); 
+                insert_windcnt_change(a->bot.x);
             }
-            left_bound->curr_x = left_bound->bot.x;
+            a->curr_x = a->bot.x;
 
-            set_direction(left_bound);
 
-            right_bound = new edge();
-            right_bound->bot = local_minima->vert->pt;
-            right_bound->vertex_top = local_minima->vert->next;  // ie ascending
-            right_bound->wind_dx = -1;
-            right_bound->top = right_bound->vertex_top->pt;
-            right_bound->local_min = local_minima;
-            right_bound->bound = nullptr;
-            insert_windcnt_change(right_bound->bot.x);
-            while (is_horz(right_bound)) {
-                next(right_bound);
-                insert_windcnt_change(right_bound->bot.x);
+            b = new edge();
+            b->bot = local_minima->vert->pt;
+            b->vertex_top = local_minima->vert->next;  // ie ascending
+            b->wind_dx = -1;
+            b->top = b->vertex_top->pt;
+            b->local_min = local_minima;
+            b->bound = nullptr;
+            insert_windcnt_change(b->bot.x);
+            while (is_horz(b)) {
+                next(b);
+                insert_windcnt_change(b->bot.x);
             }
-            right_bound->curr_x = right_bound->bot.x;
+            b->curr_x = b->bot.x;
 
-            set_direction(right_bound);
-
-            if (left_bound->top.x > right_bound->top.x) {
-                std::swap(left_bound, right_bound);
-            }
-
-            insert_into_ael(left_bound);
-            insert_into_ael(left_bound, right_bound);
-            insert_scanline(left_bound->top.y);
-            insert_scanline(right_bound->top.y);
+            insert_into_ael(a);
+            insert_into_ael(a->prev_in_ael, b);
+            insert_scanline(a->top.y);
+            insert_scanline(b->top.y);
         }
     }
 
@@ -950,9 +928,16 @@ namespace vatti
         // 永远只有端点相交的情况，top 也永远位于 top 上方
         // 同一点排序，以点为原点，9点钟方向，顺时针排序
         // Subject 在 clip 前面
-        // ToDo 还要考虑端点相交，但是是曲线的情况
-        if (resident->dx != newcomer->dx)
-            return resident->dx < newcomer->dx;
+        
+        auto min = (std::min)(resident->bot.y, newcomer->bot.y);
+        auto max = (std::min)(resident->top.y, newcomer->top.y);
+        auto mid = (min + max) / 2;
+
+        Point rp, np;
+        auto rx = get_seg(resident, rp)->curr_x(rp, mid);
+        auto nx = get_seg(newcomer, np)->curr_x(np, mid);
+        if (rx != nx) return rx < nx;
+
         return get_polytype(resident) < get_polytype(newcomer);
     }
 
@@ -1375,13 +1360,26 @@ namespace vatti
 
             rmath::line _line{ line->pt, line->next_seg->get_target() };
             auto _cubic_to = (const Seg_cubicto*)(cubic->next_seg);
-            rmath::bezier_cubic _curve{ cubic->pt, _cubic_to->ctrl_Point1,_cubic_to->ctrl_Point2,_cubic_to->target };
+            auto _curve = _cubic_to->get_cubic(cubic->pt);
 
             auto res = rmath::intersect(_line, _curve);
             for (int i = 0; i < res.count; ++i) {
                 auto& data = res.data[i];
                 if (0 < data.t0 && data.t0 < 1) break_info_list.push_back({ line,data.p,data.t0 });
                 if (0 < data.t1 && data.t1 < 1) break_info_list.push_back({ cubic,data.p,data.t1 });
+            }
+            break;
+        }
+        case flags(SegType::CubicTo):
+        {
+            auto c1 = (const Seg_cubicto*)(lseg);
+            auto c2 = (const Seg_cubicto*)(rseg);
+
+            auto res = rmath::intersect(c1->get_cubic(l->pt), c2->get_cubic(r->pt), 30);
+            for (int i = 0; i < res.count; ++i) {
+                auto& data = res.data[i];
+                if (0 < data.t0 && data.t0 < 1) break_info_list.push_back({ l,data.p,data.t0 });
+                if (0 < data.t1 && data.t1 < 1) break_info_list.push_back({ r,data.p,data.t1 });
             }
             break;
         }
