@@ -64,20 +64,27 @@ void QtView::clear()
 
 void QtView::draw_line(const QLineF& l, const QPen& pen)
 {
-    scene()->addLine(l,pen);
+    auto npen(pen);
+    npen.setCosmetic(true);
+
+    scene()->addLine(l, npen);
 }
 
 void QtView::draw_rect(const QRectF& r, const QPen& pen, const QBrush& brush)
 {
-    scene()->addRect(r,pen,brush);
+    auto npen(pen);
+    npen.setCosmetic(true);
+    scene()->addRect(r, npen,brush);
 }
 
 void QtView::draw_cubic(const QPointF& p0, const QPointF& p1, const QPointF& p2, const QPointF& p3, const QPen& pen)
 {
+    auto npen(pen);
+    npen.setCosmetic(true);
     QPainterPath path;
     path.moveTo(p0);
     path.cubicTo(p1, p2, p3);
-    scene()->addPath(path, pen);
+    scene()->addPath(path, npen);
 }
 
 void QtView::draw_point(const QPointF& p, const QPen& pen)

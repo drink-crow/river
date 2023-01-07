@@ -8,6 +8,23 @@ QPointF toqt(const rmath::vec2& p) {
     return QPointF(p.x, p.y);
 }
 
+QLineF toqt(const rmath::line& l)
+{
+    return QLineF(toqt(l.p0), toqt(l.p1));
+}
+
+void draw_path(const rmath::line& l, const QPen& pen, const QPointF& offset)
+{
+    auto ql = toqt(l);
+    ql.translate(offset);
+    debug_util::show_line(ql, pen);
+}
+
+void draw_path(const rmath::bezier_cubic& c, const QPen& pen, const QPointF& offset)
+{
+    debug_util::show_cubic(toqt(c.p0), toqt(c.p1), toqt(c.p2), toqt(c.p3), pen);
+}
+
 void draw_path(const river::Path& show, const QPen& pen, const QPointF& offset)
 {
     struct draw_func

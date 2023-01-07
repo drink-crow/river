@@ -2,7 +2,7 @@
 
 namespace rmath
 {
-    bool is_zero(double v) {
+    inline bool is_zero(double v) {
         constexpr double err = 1e-8;
         return -err < v && v < err;
     }
@@ -86,8 +86,8 @@ namespace rmath
     {
         auto r = rect::from({ p0,p1 });
 
-        return ((r.min.x <= p.x) && (p.x <= r.max.x))
-            || ((r.min.y <= p.y) && (p.y <= r.max.y));
+        if (p0.x == p1.x) return (r.min.y <= p.y) && (p.y <= r.max.y);
+        return (r.min.x <= p.x) && (p.x <= r.max.x);
     }
 
     line_intersect_result intersect(const vec2& p0, const vec2& p1, const vec2& p2, const vec2& p3)
@@ -694,7 +694,7 @@ namespace rmath
             pairs.pop_back();
 
             data p11, p12, p21, p22;
-            back.first.subdive(p11, p11);
+            back.first.subdive(p11, p12);
             back.second.subdive(p21, p22);
 
             constexpr auto check_func = [](const data& p0, const data& p1, int precise, 
@@ -717,13 +717,20 @@ namespace rmath
             [](const data_pair& l, const data_pair& r) {
                 return l.first.t0 < r.first.t0;
             });
+        // 移除太过相似的结果
+        intersect_pair.erase(std::unique(intersect_pair.begin(), intersect_pair.end(),
+            [](const data_pair& l, const data_pair& r) ->bool {
+                return (std::abs)(l.first.t0 - r.first.t0) < 1e-8;
+            }), intersect_pair.end());
 
-        for (int i = 0; i < intersect_pair.size() && i < 9; ++i) {
+        // ToDo 不能检查部分重合的情况
+        for (int i = 0; i < intersect_pair.size(); ++i) {
             auto& p = intersect_pair[i];
             res.data[i].t0 = (p.first.t0 + p.first.t1) / 2;
             res.data[i].t1 = (p.second.t0 + p.second.t1) / 2;
             res.data[i].p = b1.point_at(res.data[i].t0);
             res.count += 1;
+            if (res.count == 9) break;
         }
 
         return res;

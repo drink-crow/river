@@ -390,6 +390,14 @@ namespace vatti
         scaner.process(this);
 
         // 处理得到的打断信息
+#if 0
+        {
+            QPen redpen(Qt::red);
+            for (auto& b : break_info_list) {
+                debug_util::show_point(toqt(b.break_point), redpen);
+            }
+        }
+#endif
 
         std::sort(break_info_list.begin(), break_info_list.end(),
             [](break_info const& l, break_info const& r) {
@@ -478,7 +486,7 @@ namespace vatti
         {
             auto cur_v = first;
             QPen redpen(Qt::red);
-            redpen.setWidth(3);
+            //redpen.setWidth(3);
             do {
                 switch (cur_v->next_seg->get_type())
                 {
@@ -1333,22 +1341,19 @@ namespace vatti
 
         uint32_t t = flags(rt) & flags(lt);
 
+        constexpr double err = 1e-8;
+        constexpr double zero = 0 + err;
+        constexpr double one = 1 - err;
+
         switch (t)
         {
         case flags(SegType::LineTo):
         {
             auto res = rmath::intersect(l->pt, lseg->get_target(), r->pt, rseg->get_target());
-            if (res.count == 1) {
-                auto& data = res.data[0];
-                break_info_list.push_back({ l,data.p,data.t0 });
-                break_info_list.push_back({ r,data.p,data.t1 });
-            }
-            else if (res.count == 2) {
-                for (int i = 0; i < res.count; ++i) {
-                    auto& data = res.data[i];
-                    if (0 < data.t0 && data.t0 < 1) break_info_list.push_back({ l,data.p,data.t0 });
-                    if (0 < data.t1 && data.t1 < 1) break_info_list.push_back({ r,data.p,data.t1 });
-                }
+            for (int i = 0; i < res.count; ++i) {
+                auto& data = res.data[i];
+                if (zero < data.t0 && data.t0 < one) break_info_list.push_back({ l,data.p,data.t0 });
+                if (zero < data.t1 && data.t1 < one) break_info_list.push_back({ r,data.p,data.t1 });
             }
             break;
         }
@@ -1361,12 +1366,11 @@ namespace vatti
             rmath::line _line{ line->pt, line->next_seg->get_target() };
             auto _cubic_to = (const Seg_cubicto*)(cubic->next_seg);
             auto _curve = _cubic_to->get_cubic(cubic->pt);
-
             auto res = rmath::intersect(_line, _curve);
             for (int i = 0; i < res.count; ++i) {
                 auto& data = res.data[i];
-                if (0 < data.t0 && data.t0 < 1) break_info_list.push_back({ line,data.p,data.t0 });
-                if (0 < data.t1 && data.t1 < 1) break_info_list.push_back({ cubic,data.p,data.t1 });
+                if (zero < data.t0 && data.t0 < one) break_info_list.push_back({ line,data.p,data.t0 });
+                if (zero < data.t1 && data.t1 < one) break_info_list.push_back({ cubic,data.p,data.t1 });
             }
             break;
         }
@@ -1375,11 +1379,11 @@ namespace vatti
             auto c1 = (const Seg_cubicto*)(lseg);
             auto c2 = (const Seg_cubicto*)(rseg);
 
-            auto res = rmath::intersect(c1->get_cubic(l->pt), c2->get_cubic(r->pt), 30);
+            auto res = rmath::intersect(c1->get_cubic(l->pt), c2->get_cubic(r->pt), 40);
             for (int i = 0; i < res.count; ++i) {
                 auto& data = res.data[i];
-                if (0 < data.t0 && data.t0 < 1) break_info_list.push_back({ l,data.p,data.t0 });
-                if (0 < data.t1 && data.t1 < 1) break_info_list.push_back({ r,data.p,data.t1 });
+                if (zero < data.t0 && data.t0 < one) break_info_list.push_back({ l,data.p,data.t0 });
+                if (zero < data.t1 && data.t1 < one) break_info_list.push_back({ r,data.p,data.t1 });
             }
             break;
         }

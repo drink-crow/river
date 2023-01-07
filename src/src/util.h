@@ -7,6 +7,8 @@
 #if RIVER_GRAPHICS_DEBUG
 
 QPointF toqt(const rmath::vec2& p);
+QLineF toqt(const rmath::line& l);
+
 
 struct offset_rect
 {
@@ -32,6 +34,8 @@ struct offset_rect
     auto operator()(const QPointF& p) const { return p + move; }
 };
 
+void draw_path(const rmath::line& l, const QPen& pen = QPen(), const QPointF& offset = QPointF(0, 0));
+void draw_path(const rmath::bezier_cubic& c, const QPen& pen = QPen(), const QPointF& offset = QPointF(0, 0));
 void draw_path(const river::Path& show, const QPen& pen = QPen(), const QPointF& offset = QPointF(0,0));
 void draw_path(const river::Paths& show, const QPen& pen = QPen(), const QPointF& offset = QPointF(0, 0));
 
