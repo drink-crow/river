@@ -82,7 +82,7 @@ void QtView::draw_cubic(const QPointF& p0, const QPointF& p1, const QPointF& p2,
 
 void QtView::draw_point(const QPointF& p, const QPen& pen)
 {
-    QPointF offset(2, 2);
+    QPointF offset(0.5, 0.5);
     QRectF rect(p - offset, p + offset);
     QBrush brush(pen.color());
     brush.setStyle(Qt::SolidPattern);

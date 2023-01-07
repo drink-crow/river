@@ -152,10 +152,10 @@ namespace rmath
         const double na = (b.y * c.x - b.x * c.y) * reciprocal;
         const double nb = (a.x * c.y - a.y * c.x) * reciprocal;
 
-        const bool in_l = 0 < na && na < 1;
-        const bool in_r = 0 < nb && nb < 1;
+        const bool in_l = 0 <= na && na <= 1;
+        const bool in_r = 0 <= nb && nb <= 1;
 
-        if (in_l || in_r) {
+        if (in_l && in_r) {
             res.count = 1;
             res.data[0].p = (p0 + a * na);
             res.data[0].t0 = na;

@@ -28,6 +28,7 @@
   <Type Name="vatti::out_bound">
     <DisplayString Condition="edge != nullptr">{{x={stop_x,g}, wind_dx={wind_dx}, edge {*edge} }}</DisplayString>
     <DisplayString Condition="edge == nullptr">{{x={stop_x,g}, wind_dx={wind_dx}}}</DisplayString>
+    <DisplayString>null</DisplayString>
     <Expand>
       <CustomListItems MaxItemsPerView="5000" ExcludeView="Test">
         <Variable Name="next" InitialValue="next_in_obl" />
