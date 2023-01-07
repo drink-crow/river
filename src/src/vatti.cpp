@@ -341,7 +341,7 @@ namespace vatti
         process_intersect();
         reset();
 
-        num y;
+        num y = -std::numeric_limits<num>::max();
         if (!pop_scanline(y, y)) return;
 
         while (true)
@@ -448,8 +448,6 @@ namespace vatti
                     [](break_info const& li, break_info const& ri) {
                         return li.t < ri.t;
                     });
-
-
                 std::vector<bezier_cubic> split_c(cur_break_list.size() + 1);
                 std::vector<double> split_t;
                 for (auto& info : cur_break_list) split_t.push_back(info.t);
@@ -458,7 +456,7 @@ namespace vatti
 
                 first_cubicto->ctrl_Point1 = split_c[0].p1;
                 first_cubicto->ctrl_Point2 = split_c[0].p2;
-                first_cubicto->target = split_c[0].p3;
+                first_cubicto->target = cur_break_list[0].break_point;
                 auto next = new_vertex();
                 set_segment(start_v, next, first_cubicto);
                 cur_v = next;
