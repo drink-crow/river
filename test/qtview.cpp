@@ -1,6 +1,8 @@
 #include "qtview.h"
 #include <qbrush.h>
 #include <qpainterpath.h>
+#include <qapplication.h>
+#include <qdebug.h>
 
 QtView* view = nullptr;
 
@@ -85,4 +87,17 @@ void QtView::draw_point(const QPointF& p, const QPen& pen)
     QBrush brush(pen.color());
     brush.setStyle(Qt::SolidPattern);
     scene()->addEllipse(rect, pen, brush);
+}
+
+void QtView::wheelEvent(QWheelEvent* event)
+{
+    auto modifierPressed = QApplication::keyboardModifiers();
+    if (modifierPressed & Qt::AltModifier) {
+        auto sc = 1. + event->angleDelta().x() * 0.0005;
+        if(sc!=1)
+            scale(sc, sc);
+    }
+    else {
+        return QGraphicsView::wheelEvent(event);
+    }
 }

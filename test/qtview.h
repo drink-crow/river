@@ -5,7 +5,7 @@
 #include "qbrush.h"
 #include "QGraphicsScene"
 #include "QGraphicsView"
-
+#include <QWheelEvent>
 
 class QtView : public QGraphicsView
 {
@@ -27,6 +27,7 @@ public slots:
     void draw_point(const QPointF& p, const QPen& pen = QPen());
 
 protected:
+    void wheelEvent(QWheelEvent* event) override;
 };
 
 extern QtView* view;
