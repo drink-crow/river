@@ -659,7 +659,7 @@ namespace rmath
         double t1 = 1;
         int recurse = 0;
 
-        inline void subdive(data& out1, data out2) const
+        inline void subdive(data& out1, data& out2) const
         {
             bezier.split(0.5, &out1.bezier, &out2.bezier);
             out1.rect = rough_rect(out1.bezier);
@@ -694,8 +694,8 @@ namespace rmath
             pairs.pop_back();
 
             data p11, p12, p21, p22;
-            p1.subdive(p11, p11);
-            p2.subdive(p21, p22);
+            back.first.subdive(p11, p11);
+            back.second.subdive(p21, p22);
 
             constexpr auto check_func = [](const data& p0, const data& p1, int precise, 
                 decltype(pairs)& next_out, decltype(intersect_pair)& intersect_out) {
