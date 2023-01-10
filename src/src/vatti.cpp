@@ -138,6 +138,14 @@ namespace vatti
             case SegType::LineTo:
                 return true;
                 break;
+            case SegType::CubicTo:
+            {
+                auto c1 = (Seg_cubicto*)get_seg(a);
+                auto c2 = (Seg_cubicto*)get_seg(b);
+                return (c1->ctrl_Point1 == c2->ctrl_Point1 && c1->ctrl_Point2 == c2->ctrl_Point2)
+                    || (c1->ctrl_Point2 == c2->ctrl_Point1 && c1->ctrl_Point1 == c2->ctrl_Point2);
+                break;
+            }
             default:
                 // ToDo 增加别的曲线类型的判断
                 break;
@@ -176,7 +184,6 @@ namespace vatti
             vertex* first = new_vertex();
             paths_start.push_back(first);
 
-
             // ...===vertext===seg===vertex===seg===vertex...
             auto it = path.data.begin();
             first->pt = (*it)->get_target();
@@ -196,40 +203,49 @@ namespace vatti
 
                     bezier_cubic b{ prev->pt, cubicto->ctrl_Point1, cubicto->ctrl_Point2, cubicto->target };
                     
-                    double split_t[2];
-                    auto break_cnt = b.split_y(split_t, split_t + 1);
-                    bezier_cubic tmp[3];
-                    b.split(split_t, tmp, break_cnt);
-                    switch (break_cnt)
+                    if (b.p0.x != b.p3.x && b.p0.y == b.p1.y && b.p1.y == b.p2.y && b.p2.y == b.p3.y) {
+                        set_segment(prev, cur, new Seg_lineto(cur->pt));
+                    }
+                    else
                     {
-                    case 2:
-                        set_segment(prev, cur, new Seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
-                        prev = cur; cur = new_vertex();
-                        set_segment(prev, cur, new Seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
-                        prev = cur; cur = new_vertex();
-                        set_segment(prev, cur, new Seg_cubicto(tmp[2].p1, tmp[2].p2, tmp[2].p3));
-                        break;
-                    case 1:
-                        set_segment(prev, cur, new Seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
-                        prev = cur; cur = new_vertex();
-                        set_segment(prev, cur, new Seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
-                        break;
-                    default:
-                        set_segment(prev, cur, seg->deep_copy());
-                        break;
+                        double split_t[2];
+                        auto break_cnt = b.split_y(split_t, split_t + 1);
+                        bezier_cubic tmp[3];
+                        b.split(split_t, tmp, break_cnt);
+                        switch (break_cnt)
+                        {
+                        case 2:
+                            set_segment(prev, cur, new Seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
+                            prev = cur; cur = new_vertex();
+                            set_segment(prev, cur, new Seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
+                            prev = cur; cur = new_vertex();
+                            set_segment(prev, cur, new Seg_cubicto(tmp[2].p1, tmp[2].p2, tmp[2].p3));
+                            break;
+                        case 1:
+                            set_segment(prev, cur, new Seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
+                            prev = cur; cur = new_vertex();
+                            set_segment(prev, cur, new Seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
+                            break;
+                        default:
+                            set_segment(prev, cur, seg->deep_copy());
+                            break;
+                        }
                     }
                 }
                     break;
                 default:
                     // ToDO: 别的曲线类型
-                    if(seg->get_target() != prev->pt) 
+                    if(seg->get_target() != prev->pt) {
                         set_segment(prev, cur, seg->deep_copy());
+                    }
                     break;
                 }
 
                 prev = cur;
             }
             if (!cur) continue;
+            if (!(first->next)) continue; // 跳过最终少于2个点的序列
+
             if (cur->pt != first->pt) { // 末点不重合则连接至 first
                 set_segment(cur, first, new Seg_lineto(first->pt));
             }
