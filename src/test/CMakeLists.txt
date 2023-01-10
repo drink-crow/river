@@ -1,7 +1,7 @@
 set(CMAKE_CXX_STANDARD 17)
 
 add_executable(main main.cpp)
-target_link_libraries(main PRIVATE river Clipper2)
+target_link_libraries(main PRIVATE river)
 
 if(WIN32)
     get_target_property(moc_path Qt6::moc IMPORTED_LOCATION)

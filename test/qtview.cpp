@@ -4,17 +4,21 @@
 #include <qapplication.h>
 #include <qdebug.h>
 
+#include "main_window.h"
+
+
 QtView* view = nullptr;
 
 QtView::QtView(QGraphicsScene* scene, QWidget* parent) : QGraphicsView(scene, parent)
 {
-        setBaseSize(800, 600);
-        setDragMode(QGraphicsView::DragMode::ScrollHandDrag);
+    setMouseTracking(true);
+    setBaseSize(800, 600);
+    setDragMode(QGraphicsView::DragMode::ScrollHandDrag);
         
-        scale(1, -1);
+    scale(1, -1);
 
-        connect(this, &QtView::new_file, this, &QtView::paser_file);
-        clear();
+    connect(this, &QtView::new_file, this, &QtView::paser_file);
+    clear();
 }
 
 void QtView::paser_file_thread(QByteArray buffer, QString type)
@@ -59,6 +63,8 @@ void QtView::paser_file(QByteArray buffer, QString type)
 void QtView::clear()
 {
     scene()->clear();
+    line_x = nullptr;
+    line_y = nullptr;
     // scene()->addRect(QRect(-250,-250,500,500));
 }
 
@@ -105,6 +111,32 @@ void QtView::wheelEvent(QWheelEvent* event)
             scale(sc, sc);
     }
     else {
-        return QGraphicsView::wheelEvent(event);
+        return super::wheelEvent(event);
     }
+}
+
+void QtView::mouseMoveEvent(QMouseEvent* event)
+{
+    auto center = mapToScene(event->position().toPoint());
+
+    auto rect = sceneRect();
+    if (!line_x) { 
+        line_x = new QGraphicsLineItem;
+        QPen pen; pen.setCosmetic(true);
+        line_x->setPen(pen);
+        scene()->addItem(line_x);
+    }
+    if (!line_y) { 
+        line_y = new QGraphicsLineItem;
+        QPen pen; pen.setCosmetic(true);
+        line_y->setPen(pen);
+        scene()->addItem(line_y);
+    }
+    
+    line_x->setLine(rect.left(), center.y(), rect.right(), center.y());
+    line_y->setLine(center.x(), rect.top(), center.x(), rect.bottom());
+
+    mainwindow->post_message(QString("%1, %2").arg(center.x()).arg(center.y()));
+
+    super::mouseMoveEvent(event);
 }

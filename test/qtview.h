@@ -5,7 +5,9 @@
 #include "qbrush.h"
 #include "QGraphicsScene"
 #include "QGraphicsView"
+#include <QGraphicsLineItem>
 #include <QWheelEvent>
+#include <QMouseEvent>
 
 class QtView : public QGraphicsView
 {
@@ -28,6 +30,15 @@ public slots:
 
 protected:
     void wheelEvent(QWheelEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    
+private:
+    typedef QGraphicsView super;
+
+    QGraphicsLineItem* line_x = nullptr;
+    QGraphicsLineItem* line_y = nullptr;
+    
+
 };
 
 extern QtView* view;

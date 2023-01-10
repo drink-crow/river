@@ -31,6 +31,14 @@ central_widget::central_widget(QWidget* parent) : QWidget(parent)
         mainwindow->show();
         });
     pin->click();
+
+    msg_lb_ = new QLabel;
+    hlayout->addWidget(msg_lb_);
+}
+
+void central_widget::post_message(QString msg)
+{
+    msg_lb_->setText(msg);
 }
 
 void central_widget::clear(){

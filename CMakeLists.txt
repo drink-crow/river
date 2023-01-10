@@ -11,7 +11,6 @@ if(RIVER_DEVELOP_TEST)
 endif()
 
 add_subdirectory(src)
-add_subdirectory(third_parts/Clipper2/CPP)
 
 if(RIVER_DEVELOP_TEST)
     add_subdirectory(test)
