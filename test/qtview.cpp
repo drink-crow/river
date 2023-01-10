@@ -118,8 +118,9 @@ void QtView::wheelEvent(QWheelEvent* event)
 void QtView::mouseMoveEvent(QMouseEvent* event)
 {
     auto center = mapToScene(event->position().toPoint());
-
-    auto rect = sceneRect();
+    auto origin = mapToScene(QPoint(0,0));
+    auto corner = mapToScene(rect().bottomRight());
+    
     if (!line_x) { 
         line_x = new QGraphicsLineItem;
         QPen pen; pen.setCosmetic(true);
@@ -133,8 +134,8 @@ void QtView::mouseMoveEvent(QMouseEvent* event)
         scene()->addItem(line_y);
     }
     
-    line_x->setLine(rect.left(), center.y(), rect.right(), center.y());
-    line_y->setLine(center.x(), rect.top(), center.x(), rect.bottom());
+    line_x->setLine(origin.x(), center.y(), corner.x(), center.y());
+    line_y->setLine(center.x(), origin.y(), center.x(), corner.y());
 
     mainwindow->post_message(QString("%1, %2").arg(center.x()).arg(center.y()));
 
