@@ -614,6 +614,7 @@ namespace vatti
 
         if (!left) {
             curr_e->wind_cnt = curr_e->wind_dx;
+            curr_e->wind_cnt2 = 0;
             left = ael_first;
         }
         else if (fillrule_ == fill_rule::even_odd) {
