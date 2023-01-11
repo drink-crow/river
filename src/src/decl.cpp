@@ -43,7 +43,7 @@ namespace scan_line {
 
       switch (sort)
       {
-      case flags(SegType::LineTo):
+      case flags(seg_type::lineto):
         dcel::intersect((dcel::line_half_edge*)r, (dcel::line_half_edge*)l);
         break;
       default:
@@ -153,7 +153,7 @@ namespace dcel {
       auto le = l.edge;
       auto re = r.edge;
 
-      if (le.edge->get_seg_type() == SegType::LineTo && re.edge->get_seg_type() == SegType::LineTo)
+      if (le.edge->get_seg_type() == seg_type::lineto && re.edge->get_seg_type() == seg_type::lineto)
       {
         if (l.data.angle < r.data.angle) return true;
         if (l.data.angle > r.data.angle) return false;
@@ -277,12 +277,12 @@ namespace dcel {
     return data;
   }
 
-  void dcel::set_current_path_type(PathType new_type)
+  void dcel::set_current_path_type(path_type new_type)
   {
     current_path_type = new_type;
   }
 
-  PathType dcel::get_current_path_type() const
+  path_type dcel::get_current_path_type() const
   {
     return current_path_type;
   }

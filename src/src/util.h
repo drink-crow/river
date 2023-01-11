@@ -36,12 +36,12 @@ struct offset_rect
 
 void draw_path(const rmath::line& l, const QPen& pen = QPen(), const QPointF& offset = QPointF(0, 0));
 void draw_path(const rmath::bezier_cubic& c, const QPen& pen = QPen(), const QPointF& offset = QPointF(0, 0));
-void draw_path(const river::Path& show, const QPen& pen = QPen(), const QPointF& offset = QPointF(0, 0));
-void draw_path(const river::Paths& show, const QPen& pen = QPen(), const QPointF& offset = QPointF(0, 0));
+void draw_path(const river::path& show, const QPen& pen = QPen(), const QPointF& offset = QPointF(0, 0));
+void draw_path(const river::paths& show, const QPen& pen = QPen(), const QPointF& offset = QPointF(0, 0));
 
 #endif
 
-inline constexpr uint32_t flags(river::SegType t) {
+inline constexpr uint32_t flags(river::seg_type t) {
   return 1 << (uint32_t)t;
 }
 

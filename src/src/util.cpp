@@ -25,7 +25,7 @@ void draw_path(const rmath::bezier_cubic& c, const QPen& pen, const QPointF& off
   debug_util::show_cubic(toqt(c.p0), toqt(c.p1), toqt(c.p2), toqt(c.p3), pen);
 }
 
-void draw_path(const river::Path& show, const QPen& pen, const QPointF& offset)
+void draw_path(const river::path& show, const QPen& pen, const QPointF& offset)
 {
   struct draw_func
   {
@@ -53,7 +53,7 @@ void draw_path(const river::Path& show, const QPen& pen, const QPointF& offset)
   show.traverse(func, &data);
 }
 
-void draw_path(const river::Paths& show, const QPen& pen, const QPointF& offset)
+void draw_path(const river::paths& show, const QPen& pen, const QPointF& offset)
 {
   for (auto& p : show) {
     draw_path(p, pen, offset);

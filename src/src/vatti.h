@@ -34,10 +34,10 @@ namespace vatti
 
   struct vertex
   {
-    Point pt;
+    point pt;
 
     // if segment == nullptr, it is line point;
-    Seg* next_seg;
+    segment* next_seg;
     vertex* next;
     vertex* prev;
     vertex_flags flags = vertex_flags::none;
@@ -50,17 +50,17 @@ namespace vatti
   struct local_minima
   {
     vertex* vert;
-    PathType polytype;
+    path_type polytype;
     bool is_open;
 
-    local_minima(vertex* v, PathType pt, bool open) :
+    local_minima(vertex* v, path_type pt, bool open) :
       vert(v), polytype(pt), is_open(open) {}
   };
 
   struct break_info
   {
     vertex* vert;
-    Point break_point;
+    point break_point;
     num t;
 
     bool operator==(const break_info& r) const {
@@ -71,38 +71,38 @@ namespace vatti
   };
 
   struct out_seg {
-    SegType type = SegType::MoveTo;
+    seg_type type = seg_type::moveto;
     void* data = nullptr;
   };
 
   struct out_pt {
-    Point pt;
+    point pt;
     out_pt* next = nullptr;
     out_pt* prev = nullptr;
     out_seg* next_data = nullptr;
     out_polygon* outrec;
 
-    out_pt(const Point& pt_, out_polygon* outrec_) : pt(pt_), outrec(outrec_) {
+    out_pt(const point& pt_, out_polygon* outrec_) : pt(pt_), outrec(outrec_) {
       next = this;
       prev = this;
     }
   };
 
   struct cubic_data {
-    Point ctrl1;
-    Point ctrl2;
+    point ctrl1;
+    point ctrl2;
   };
 
   struct out_polygon
   {
     size_t idx = 0;
     out_polygon* owner = nullptr;
-    Point origin;
+    point origin;
     out_bound* up_bound = nullptr;
     out_bound* down_bound = nullptr;
 
-    std::vector<Seg*> up_path;
-    std::vector<Seg*> down_path;
+    std::vector<segment*> up_path;
+    std::vector<segment*> down_path;
 
     bool is_complete = false;
     bool is_open = false;
@@ -125,8 +125,8 @@ namespace vatti
 
   struct edge
   {
-    Point bot;
-    Point top;
+    point bot;
+    point top;
     num curr_x = 0;
     // ToDo 单 double 不足以表示曲线内容走向和斜率
     double dx = 0.;
@@ -147,16 +147,16 @@ namespace vatti
   class clipper
   {
   public:
-    void add_path(const Paths& paths, PathType polytype, bool is_open);
+    void add_path(const paths& paths, path_type polytype, bool is_open);
 
-    void process(clip_type operation, fill_rule fill, Paths& output);
+    void process(clip_type operation, fill_rule fill, paths& output);
 
     void intersect(vertex* const& r, vertex* const& l);
   private:
     void process_intersect();
     vertex* new_vertex();
-    void set_segment(vertex* prev, vertex* mem, Seg* move_seg);
-    void add_local_min(vertex* vert, PathType pt, bool is_open);
+    void set_segment(vertex* prev, vertex* mem, segment* move_seg);
+    void add_local_min(vertex* vert, path_type pt, bool is_open);
     void reset();
     void insert_scanline(num y);
     bool pop_scanline(num old_y, num& new_y);
@@ -175,7 +175,7 @@ namespace vatti
     void do_top_of_scanbeam(num y);
     void close_output(num y);
     void resort_ael(num y);
-    void build_output(Paths& output);
+    void build_output(paths& output);
     void join_output(out_bound* a, out_bound* b, num y);
     void new_output(edge* a, edge* b);
     void update_bound(out_bound* bound, edge* new_edge);

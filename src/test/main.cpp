@@ -17,9 +17,9 @@ int main(int argc, char** argv)
   auto clip = river::make_path("m 50 30 l 110 20 l 150 30 l 150 70 l 110 80 l 50 70 l 50 30"
     "m 30 40 l 50 40 l 50 60 l 30 60 l 30 40"
     "m 120 120 c 150 30 20 -10 40 20 l 120 120");
-  river.add_path(subject, PathType::Subject);
-  river.add_path(clip, PathType::Clip);
-  Paths solution;
+  river.add_path(subject, path_type::subject);
+  river.add_path(clip, path_type::clip);
+  paths solution;
   river.process(clip_type::intersection, fill_rule::positive, solution);
 
   debug_util::disconnect();

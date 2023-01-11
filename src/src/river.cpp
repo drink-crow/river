@@ -5,50 +5,50 @@
 #include <boost/bind/bind.hpp>
 
 BOOST_FUSION_ADAPT_STRUCT(
-  river::Point,
+  river::point,
   (double, x)
   (double, y)
 )
 
 namespace river
 {
-  const Point& Seg_moveto::get_target() const {
+  const point& seg_moveto::get_target() const {
     return target;
   }
 
-  SegType Seg_moveto::get_type() const
+  seg_type seg_moveto::get_type() const
   {
-    return SegType::MoveTo;
+    return seg_type::moveto;
   }
 
-  const Point& Seg_lineto::get_target() const {
+  const point& seg_lineto::get_target() const {
     return target;
   }
 
-  SegType Seg_lineto::get_type() const
+  seg_type seg_lineto::get_type() const
   {
-    return SegType::LineTo;
+    return seg_type::lineto;
   }
 
-  const Point& Seg_arcto::get_target() const {
+  const point& seg_arcto::get_target() const {
     return target;
   }
 
-  SegType Seg_arcto::get_type() const
+  seg_type seg_arcto::get_type() const
   {
-    return SegType::ArcTo;
+    return seg_type::arcto;
   }
 
-  const Point& Seg_cubicto::get_target() const {
+  const point& seg_cubicto::get_target() const {
     return target;
   }
 
-  SegType Seg_cubicto::get_type() const
+  seg_type seg_cubicto::get_type() const
   {
-    return SegType::CubicTo;
+    return seg_type::cubicto;
   }
 
-  double Seg_cubicto::curr_x(const Point& from, double y) const
+  double seg_cubicto::curr_x(const point& from, double y) const
   {
     auto cubic = get_cubic(from);
     auto res = cubic.point_at_y(y);
@@ -66,7 +66,7 @@ namespace river
   void empty_path_arc_func(path_arcto_func_para) {}
   void empty_path_cubic_func(path_cubicto_func_para) {}
 
-  void Path::traverse(const path_traverse_funcs& in_funcs, void* user) const
+  void path::traverse(const path_traverse_funcs& in_funcs, void* user) const
   {
     path_traverse_funcs act = in_funcs;
     if (!act.move_to) act.move_to = empty_path_move_func;
@@ -74,34 +74,34 @@ namespace river
     if (!act.arc_to) act.arc_to = empty_path_arc_func;
     if (!act.cubic_to) act.cubic_to = empty_path_cubic_func;
 
-    Point last_p(0, 0);
-    Point cur_p = last_p;
+    point last_p(0, 0);
+    point cur_p = last_p;
     for (auto& e : data) {
       cur_p = e->get_target();
 
       switch (e->get_type())
       {
-      case SegType::MoveTo:
+      case seg_type::moveto:
       {
         act.move_to(last_p, cur_p, user);
         break;
       }
-      case SegType::LineTo:
+      case seg_type::lineto:
       {
         act.line_to(last_p, cur_p, user);
         break;
       }
-      case SegType::ArcTo:
+      case seg_type::arcto:
       {
-        auto arcto_seg = (const Seg_arcto*)(e);
+        auto arcto_seg = (const seg_arcto*)(e);
         // ToDo start_sweepRad 没有正确计算
         act.arc_to(last_p, arcto_seg->center, arcto_seg->center, cur_p, user);
         break;
       }
-      case SegType::CubicTo:
+      case seg_type::cubicto:
       {
-        auto cubicto_seg = (const Seg_cubicto*)(e);
-        act.cubic_to(last_p, cubicto_seg->ctrl_Point1, cubicto_seg->ctrl_Point2, cur_p, user);
+        auto cubicto_seg = (const seg_cubicto*)(e);
+        act.cubic_to(last_p, cubicto_seg->ctrl1, cubicto_seg->ctrl2, cur_p, user);
         break;
       }
       default:
@@ -112,7 +112,7 @@ namespace river
     }
   }
 
-  Paths make_path(const char* s)
+  paths make_path(const char* s)
   {
     using namespace boost::spirit;
     using boost::spirit::qi::char_;
@@ -123,16 +123,16 @@ namespace river
     namespace ascii = boost::spirit::ascii;
     namespace fusion = boost::fusion;
 
-    using cubic_pack = boost::fusion::vector<char, Point, Point, Point>;
-    using arc_pack = boost::fusion::vector<char, Point, Point>;
+    using cubic_pack = boost::fusion::vector<char, point, point, point>;
+    using arc_pack = boost::fusion::vector<char, point, point>;
 
     struct writer
     {
-      Paths* _path;
-      Path& back() const { return _path->back(); }
+      paths* _path;
+      path& back() const { return _path->back(); }
 
-      void moveto(Point const& p) const { _path->push_back(Path()); back().moveto(p); }
-      void lineto(const Point& p) const { back().lineto(p); }
+      void moveto(point const& p) const { _path->push_back(path()); back().moveto(p); }
+      void lineto(const point& p) const { back().lineto(p); }
       void arcto(arc_pack const& pack) const {
         back().arcto(fusion::at_c<1>(pack), fusion::at_c<2>(pack));
       }
@@ -141,11 +141,11 @@ namespace river
       }
     };
 
-    Paths res;
+    paths res;
     writer w;
     w._path = &res;
 
-    qi::rule<it, Point(), ascii::space_type> point_p;
+    qi::rule<it, point(), ascii::space_type> point_p;
     qi::rule<it, cubic_pack(), ascii::space_type> cubic_p;
     qi::rule<it, arc_pack(), ascii::space_type> arc_p;
     point_p %= double_ >> double_;
@@ -156,7 +156,7 @@ namespace river
     auto path = *(move_p | line_p | arc_p | cubic_p);
 
     std::string str(s);
-    Point p;
+    point p;
     if (!qi::phrase_parse(str.begin(), str.end(), path, ascii::space)) {
       res.clear();
     }

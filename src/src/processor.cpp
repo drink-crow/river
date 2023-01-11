@@ -39,16 +39,16 @@ namespace river {
 
 #if 1
 
-  void processor::add_path(const Paths& in, PathType pt)
+  void processor::add_path(const paths& in, path_type pt)
   {
     QPen pen;
-    if (pt == PathType::Clip) pen.setColor(Qt::blue);
+    if (pt == path_type::clip) pen.setColor(Qt::blue);
 
     draw_path(in, pen);
     pptr->clipper.add_path(in, pt, false);
   }
 
-  void processor::process(clip_type operation, fill_rule fill_rule, Paths& output)
+  void processor::process(clip_type operation, fill_rule fill_rule, paths& output)
   {
     pptr->clipper.process(operation, fill_rule, output);
   }

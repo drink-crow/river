@@ -38,11 +38,11 @@ namespace vatti
   constexpr num num_min = -num_max;
 
   // ToDO: 判断没齐全
-  bool is_vaild(const Path& p) {
+  bool is_vaild(const path& p) {
     return p.data.size() > 1;
   }
 
-  inline PathType get_polytype(const edge* e) {
+  inline path_type get_polytype(const edge* e) {
     return e->local_min->polytype;
   }
 
@@ -57,7 +57,7 @@ namespace vatti
 
   inline bool is_hot(const edge* e) { return e->bound; }
 
-  void clipper::add_local_min(vertex* vert, PathType pt, bool is_open)
+  void clipper::add_local_min(vertex* vert, path_type pt, bool is_open)
   {
     //make sure the vertex is added only once ...
     if ((vertex_flags::local_min & vert->flags) != vertex_flags::none) return;
@@ -70,7 +70,7 @@ namespace vatti
            pi/2
              |
    -inf pi---O---0  +inf*/
-  num get_direction(const Point& top, const Point& bot) {
+  num get_direction(const point& top, const point& bot) {
     double dy = double(top.y - bot.y);
     if (dy != 0)
       return (top.x - bot.x) / dy;
@@ -84,8 +84,8 @@ namespace vatti
     e->dx = get_direction(e->top, e->bot);
   }
 
-  Seg* get_seg(const edge* e, Point& out_from) {
-    Seg* res = nullptr;
+  segment* get_seg(const edge* e, point& out_from) {
+    segment* res = nullptr;
     if (e->is_up()) {
       auto prev = e->vertex_top->prev;
       res = prev->next_seg;
@@ -99,21 +99,21 @@ namespace vatti
     return res;
   }
 
-  Seg* get_seg(const edge* e) {
-    Point unuse;
+  segment* get_seg(const edge* e) {
+    point unuse;
     return get_seg(e, unuse);
   }
 
-  Seg* copy_seg(const edge* e, bool reverse = false) {
-    Point from;
-    Seg* res = get_seg(e, from)->deep_copy();
+  segment* copy_seg(const edge* e, bool reverse = false) {
+    point from;
+    segment* res = get_seg(e, from)->deep_copy();
     if (reverse) res->reverse(from);
     return res;
   }
 
   void update_intermediate_curr_x(edge* e, num y)
   {
-    Point from;
+    point from;
     auto seg = get_seg(e, from);
     e->curr_x = seg->curr_x(from, y);
   }
@@ -137,15 +137,15 @@ namespace vatti
       && a_seg->get_type() == b_seg->get_type()) {
       switch (a_seg->get_type())
       {
-      case SegType::LineTo:
+      case seg_type::lineto:
         return true;
         break;
-      case SegType::CubicTo:
+      case seg_type::cubicto:
       {
-        auto c1 = (Seg_cubicto*)get_seg(a);
-        auto c2 = (Seg_cubicto*)get_seg(b);
-        return (c1->ctrl_Point1 == c2->ctrl_Point1 && c1->ctrl_Point2 == c2->ctrl_Point2)
-          || (c1->ctrl_Point2 == c2->ctrl_Point1 && c1->ctrl_Point1 == c2->ctrl_Point2);
+        auto c1 = (seg_cubicto*)get_seg(a);
+        auto c2 = (seg_cubicto*)get_seg(b);
+        return (c1->ctrl1 == c2->ctrl1 && c1->ctrl2 == c2->ctrl2)
+          || (c1->ctrl2 == c2->ctrl1 && c1->ctrl1 == c2->ctrl2);
         break;
       }
       default:
@@ -176,7 +176,7 @@ namespace vatti
     obl_first = nullptr;
   }
 
-  void clipper::add_path(const Paths& paths, PathType polytype, bool is_open)
+  void clipper::add_path(const paths& paths, path_type polytype, bool is_open)
   {
     for (auto& path : paths)
     {
@@ -200,13 +200,13 @@ namespace vatti
         // ToDO: 还要处理曲线等价与一条水平线的情况
         switch (seg->get_type())
         {
-        case SegType::CubicTo: {
-          auto cubicto = static_cast<Seg_cubicto*>(seg);
+        case seg_type::cubicto: {
+          auto cubicto = static_cast<seg_cubicto*>(seg);
 
-          bezier_cubic b{ prev->pt, cubicto->ctrl_Point1, cubicto->ctrl_Point2, cubicto->target };
+          bezier_cubic b{ prev->pt, cubicto->ctrl1, cubicto->ctrl2, cubicto->target };
 
           if (b.p0.x != b.p3.x && b.p0.y == b.p1.y && b.p1.y == b.p2.y && b.p2.y == b.p3.y) {
-            set_segment(prev, cur, new Seg_lineto(cur->pt));
+            set_segment(prev, cur, new seg_lineto(cur->pt));
           }
           else
           {
@@ -217,16 +217,16 @@ namespace vatti
             switch (break_cnt)
             {
             case 2:
-              set_segment(prev, cur, new Seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
+              set_segment(prev, cur, new seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
               prev = cur; cur = new_vertex();
-              set_segment(prev, cur, new Seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
+              set_segment(prev, cur, new seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
               prev = cur; cur = new_vertex();
-              set_segment(prev, cur, new Seg_cubicto(tmp[2].p1, tmp[2].p2, tmp[2].p3));
+              set_segment(prev, cur, new seg_cubicto(tmp[2].p1, tmp[2].p2, tmp[2].p3));
               break;
             case 1:
-              set_segment(prev, cur, new Seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
+              set_segment(prev, cur, new seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
               prev = cur; cur = new_vertex();
-              set_segment(prev, cur, new Seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
+              set_segment(prev, cur, new seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
               break;
             default:
               set_segment(prev, cur, seg->deep_copy());
@@ -249,7 +249,7 @@ namespace vatti
       if (!(first->next)) continue; // 跳过最终少于2个点的序列
 
       if (cur->pt != first->pt) { // 末点不重合则连接至 first
-        set_segment(cur, first, new Seg_lineto(first->pt));
+        set_segment(cur, first, new seg_lineto(first->pt));
       }
       else { // 否则丢弃cur，重新连接至 first
         prev = cur->prev;
@@ -264,13 +264,13 @@ namespace vatti
         do {
           switch (cur_v->next_seg->get_type())
           {
-          case SegType::LineTo:
+          case seg_type::lineto:
             debug_util::show_line(QLineF(toqt(cur_v->pt), toqt(cur_v->next_seg->get_target())), redpen);
             break;
-          case SegType::CubicTo:
+          case seg_type::cubicto:
           {
-            auto cubic = (const Seg_cubicto*)(cur_v->next_seg);
-            debug_util::show_cubic(toqt(cur_v->pt), toqt(cubic->ctrl_Point1), toqt(cubic->ctrl_Point2), toqt(cur_v->next->pt), redpen);
+            auto cubic = (const seg_cubicto*)(cur_v->next_seg);
+            debug_util::show_cubic(toqt(cur_v->pt), toqt(cubic->ctrl1), toqt(cubic->ctrl2), toqt(cur_v->next->pt), redpen);
             break;
           }
           default:
@@ -351,7 +351,7 @@ namespace vatti
     }
   }
 
-  void clipper::process(clip_type operation, fill_rule fill, Paths& output)
+  void clipper::process(clip_type operation, fill_rule fill, paths& output)
   {
     cliptype_ = operation;
     fillrule_ = fill;
@@ -441,25 +441,25 @@ namespace vatti
       auto end_p = cur_v->next->pt;
       switch (start_seg->get_type())
       {
-      case SegType::LineTo:
+      case seg_type::lineto:
       {
         std::vector<break_info> cur_break_list(start, end);
         auto dx = end_p.x >= start_p.x;
         auto dy = end_p.y >= start_p.y;
-        ((Seg_lineto*)start_seg)->target = cur_break_list[0].break_point;
+        ((seg_lineto*)start_seg)->target = cur_break_list[0].break_point;
         auto next = new_vertex();
         set_segment(start_v, next, start_seg);
         cur_v = next;
         for (size_t i = 1; i < cur_break_list.size(); ++i) {
-          set_segment(cur_v, new_vertex(), new Seg_lineto(cur_break_list[i].break_point));
+          set_segment(cur_v, new_vertex(), new seg_lineto(cur_break_list[i].break_point));
           cur_v = cur_v->next;
         }
         auto end_flags = end_v->flags;
-        set_segment(cur_v, end_v, new Seg_lineto(end_v->pt));
+        set_segment(cur_v, end_v, new seg_lineto(end_v->pt));
         end_v->flags = end_flags;
         break;
       }
-      case SegType::CubicTo:
+      case seg_type::cubicto:
       {
         std::vector<break_info> cur_break_list(start, end);
         std::sort(cur_break_list.begin(), cur_break_list.end(),
@@ -469,22 +469,22 @@ namespace vatti
         std::vector<bezier_cubic> split_c(cur_break_list.size() + 1);
         std::vector<double> split_t;
         for (auto& info : cur_break_list) split_t.push_back(info.t);
-        auto first_cubicto = (Seg_cubicto*)start_seg;
+        auto first_cubicto = (seg_cubicto*)start_seg;
         first_cubicto->get_cubic(start_p).split(split_t.data(), split_c.data(), split_t.size());
 
-        first_cubicto->ctrl_Point1 = split_c[0].p1;
-        first_cubicto->ctrl_Point2 = split_c[0].p2;
+        first_cubicto->ctrl1 = split_c[0].p1;
+        first_cubicto->ctrl2 = split_c[0].p2;
         first_cubicto->target = cur_break_list[0].break_point;
         auto next = new_vertex();
         set_segment(start_v, next, first_cubicto);
         cur_v = next;
         for (size_t i = 1; i < cur_break_list.size(); ++i) {
-          set_segment(cur_v, new_vertex(), new Seg_cubicto(
+          set_segment(cur_v, new_vertex(), new seg_cubicto(
             split_c[i].p1, split_c[i].p2, cur_break_list[i].break_point));
           cur_v = cur_v->next;
         }
         auto end_flags = end_v->flags;
-        set_segment(cur_v, end_v, new Seg_cubicto(split_c.back().p1, split_c.back().p2, end_v->pt));
+        set_segment(cur_v, end_v, new seg_cubicto(split_c.back().p1, split_c.back().p2, end_v->pt));
         end_v->flags = end_flags;
 
         break;
@@ -506,13 +506,13 @@ namespace vatti
       do {
         switch (cur_v->next_seg->get_type())
         {
-        case SegType::LineTo:
+        case seg_type::lineto:
           debug_util::show_line(QLineF(toqt(cur_v->pt), toqt(cur_v->next_seg->get_target())), redpen);
           break;
-        case SegType::CubicTo:
+        case seg_type::cubicto:
         {
-          auto cubic = (const Seg_cubicto*)(cur_v->next_seg);
-          debug_util::show_cubic(toqt(cur_v->pt), toqt(cubic->ctrl_Point1), toqt(cubic->ctrl_Point2), toqt(cur_v->next->pt), redpen);
+          auto cubic = (const seg_cubicto*)(cur_v->next_seg);
+          debug_util::show_cubic(toqt(cur_v->pt), toqt(cubic->ctrl1), toqt(cubic->ctrl2), toqt(cur_v->next->pt), redpen);
           break;
         }
         default:
@@ -526,7 +526,7 @@ namespace vatti
 #endif
   }
 
-  void clipper::set_segment(vertex* prev, vertex* mem, Seg* move_seg)
+  void clipper::set_segment(vertex* prev, vertex* mem, segment* move_seg)
   {
     prev->next = mem;
     prev->next_seg = move_seg;
@@ -627,7 +627,7 @@ namespace vatti
   void clipper::calc_windcnt(edge* curr_e)
   {
     edge* left = curr_e->prev_in_ael;
-    PathType pt = get_polytype(curr_e);
+    path_type pt = get_polytype(curr_e);
     while (left && (get_polytype(left) != pt || is_open(left))) left = left->prev_in_ael;
 
     if (!left) {
@@ -872,7 +872,7 @@ namespace vatti
       default:
         result = (e->wind_cnt2 == 0);
       }
-      if (get_polytype(e) == PathType::Subject)
+      if (get_polytype(e) == path_type::subject)
         return result;
       else
         return !result;
@@ -952,13 +952,13 @@ namespace vatti
 
     // 永远只有端点相交的情况，top 也永远位于 top 上方
     // 同一点排序，以点为原点，9点钟方向，顺时针排序
-    // Subject 在 clip 前面
+    // subject 在 clip 前面
 
     auto min = (std::min)(resident->bot.y, newcomer->bot.y);
     auto max = (std::min)(resident->top.y, newcomer->top.y);
     auto mid = (min + max) / 2;
 
-    Point rp, np;
+    point rp, np;
     auto rx = get_seg(resident, rp)->curr_x(rp, mid);
     auto nx = get_seg(newcomer, np)->curr_x(np, mid);
     if (rx != nx) return rx < nx;
@@ -1078,14 +1078,14 @@ namespace vatti
     for (auto e : reinsert_list) insert_into_ael(e);
   }
 
-  void clipper::build_output(Paths& output)
+  void clipper::build_output(paths& output)
   {
     for (auto out : output_list) {
       if (out->is_complete) {
         if (out->up_path.empty() && out->down_path.empty())
           continue;
 
-        Path res;
+        path res;
         res.moveto(out->origin);
         res.data.insert(res.data.end(),
           out->up_path.begin(), out->up_path.end());
@@ -1118,10 +1118,10 @@ namespace vatti
 
     if (a->stop_x != b->stop_x) {
       if (a->is_up()) {
-        aout->up_path.push_back(new Seg_lineto(Point(b->stop_x, y)));
+        aout->up_path.push_back(new seg_lineto(point(b->stop_x, y)));
       }
       else {
-        aout->down_path.push_back(new Seg_lineto(Point(a->stop_x, y)));
+        aout->down_path.push_back(new seg_lineto(point(a->stop_x, y)));
       }
     }
 
@@ -1202,7 +1202,7 @@ namespace vatti
 
     output->origin = down->edge->bot;
     if (up->edge->bot != down->edge->bot) {
-      output->up_path.push_back(new Seg_lineto(up->edge->bot));
+      output->up_path.push_back(new seg_lineto(up->edge->bot));
     }
   }
 
@@ -1211,11 +1211,11 @@ namespace vatti
   {
     if (new_edge->curr_x != bound->stop_x) {
       if (bound->is_up()) {
-        bound->owner->up_path.push_back(new Seg_lineto(new_edge->bot));
+        bound->owner->up_path.push_back(new seg_lineto(new_edge->bot));
       }
       else {
         bound->owner->down_path.push_back(
-          new Seg_lineto(Point(bound->stop_x, new_edge->bot.y))
+          new seg_lineto(point(bound->stop_x, new_edge->bot.y))
         );
       }
     }
@@ -1271,7 +1271,7 @@ namespace vatti
   {
     edge* e2 = e->prev_in_ael;
     //find the nearest closed path edge of the same PolyType in AEL (heading left)
-    PathType pt = get_polytype(e);
+    path_type pt = get_polytype(e);
     while (e2 && (get_polytype(e2) != pt || is_open(e2))) e2 = e2->prev_in_ael;
 
     if (!e2)
@@ -1364,7 +1364,7 @@ namespace vatti
 
     switch (t)
     {
-    case flags(SegType::LineTo):
+    case flags(seg_type::lineto):
     {
       auto res = rmath::intersect(l->pt, lseg->get_target(), r->pt, rseg->get_target());
       for (int i = 0; i < res.count; ++i) {
@@ -1374,14 +1374,14 @@ namespace vatti
       }
       break;
     }
-    case flags(SegType::LineTo)& flags(SegType::CubicTo):
+    case flags(seg_type::lineto)& flags(seg_type::cubicto):
     {
       vertex* line, * cubic;
-      if (lt == SegType::LineTo) { line = l; cubic = r; }
+      if (lt == seg_type::lineto) { line = l; cubic = r; }
       else { line = r; cubic = l; }
 
       rmath::line _line{ line->pt, line->next_seg->get_target() };
-      auto _cubic_to = (const Seg_cubicto*)(cubic->next_seg);
+      auto _cubic_to = (const seg_cubicto*)(cubic->next_seg);
       auto _curve = _cubic_to->get_cubic(cubic->pt);
       auto res = rmath::intersect(_line, _curve);
       for (int i = 0; i < res.count; ++i) {
@@ -1391,10 +1391,10 @@ namespace vatti
       }
       break;
     }
-    case flags(SegType::CubicTo):
+    case flags(seg_type::cubicto):
     {
-      auto c1 = (const Seg_cubicto*)(lseg);
-      auto c2 = (const Seg_cubicto*)(rseg);
+      auto c1 = (const seg_cubicto*)(lseg);
+      auto c2 = (const seg_cubicto*)(rseg);
 
       auto res = rmath::intersect(c1->get_cubic(l->pt), c2->get_cubic(r->pt), 40);
       for (int i = 0; i < res.count; ++i) {

@@ -6,127 +6,127 @@
 
 namespace river {
 
-  enum class SegType : int
+  enum class seg_type : int
   {
-    MoveTo = 0,
-    LineTo = 1,
-    ArcTo = 2,
-    CubicTo = 3
+    moveto = 0,
+    lineto = 1,
+    arcto = 2,
+    cubicto = 3
   };
 
-  enum class PathType
+  enum class path_type
   {
-    Subject, Clip
+    subject, clip
   };
 
   enum class fill_rule { even_odd, non_zero, positive, negative };
   enum class clip_type { none, intersection, union_, difference, xor_ };
 
-  using Point = rmath::vec2;
+  using point = rmath::vec2;
   using rmath::rect;
-  struct Seg
+  struct segment
   {
-    virtual const Point& get_target() const = 0;
-    virtual SegType get_type() const = 0;
-    virtual Seg* deep_copy() const = 0;
-    virtual rect get_boundary(const Point& from) const = 0;
-    virtual void reverse(const Point& from) = 0;
-    virtual double curr_x(const Point& from, double y) const = 0;
+    virtual const point& get_target() const = 0;
+    virtual seg_type get_type() const = 0;
+    virtual segment* deep_copy() const = 0;
+    virtual rect get_boundary(const point& from) const = 0;
+    virtual void reverse(const point& from) = 0;
+    virtual double curr_x(const point& from, double y) const = 0;
   };
 
-  struct Seg_moveto : public Seg
+  struct seg_moveto : public segment
   {
-    Point target;
+    point target;
 
-    Seg_moveto(const Point& p) :target(p) {}
-    virtual const Point& get_target() const override;
-    virtual SegType get_type() const override;
-    virtual rect get_boundary(const Point& from) const { return rect(target); };
-    virtual Seg* deep_copy() const override {
-      return new Seg_moveto{ target };
+    seg_moveto(const point& p) :target(p) {}
+    virtual const point& get_target() const override;
+    virtual seg_type get_type() const override;
+    virtual rect get_boundary(const point& from) const { return rect(target); };
+    virtual segment* deep_copy() const override {
+      return new seg_moveto{ target };
     }
-    virtual void reverse(const Point& from) override {
+    virtual void reverse(const point& from) override {
       target = from;
     }
-    virtual double curr_x(const Point& from, double y) const override { return target.x; }
+    virtual double curr_x(const point& from, double y) const override { return target.x; }
   };
 
-  struct Seg_lineto : public Seg
+  struct seg_lineto : public segment
   {
-    Point target;
+    point target;
 
-    Seg_lineto(const Point& p) :target(p) {}
-    const Point& get_target() const override;
-    SegType get_type() const override;
-    virtual rect get_boundary(const Point& from) const { return rect::from({ target, from }); };
-    virtual Seg* deep_copy() const override {
-      return new Seg_lineto{ target };
+    seg_lineto(const point& p) :target(p) {}
+    const point& get_target() const override;
+    seg_type get_type() const override;
+    virtual rect get_boundary(const point& from) const { return rect::from({ target, from }); };
+    virtual segment* deep_copy() const override {
+      return new seg_lineto{ target };
     }
-    virtual void reverse(const Point& from) override {
+    virtual void reverse(const point& from) override {
       target = from;
     }
-    virtual double curr_x(const Point& from, double y) const override {
+    virtual double curr_x(const point& from, double y) const override {
       return (target.x - from.x) * (y - from.y) / (target.y - from.y) + from.x;
     }
   };
 
-  struct Seg_arcto : public Seg
+  struct seg_arcto : public segment
   {
-    Point target;
-    Point center;
+    point target;
+    point center;
     bool longarc;
 
-    Seg_arcto(const Point& _target, const Point& c, bool _longarc) :
+    seg_arcto(const point& _target, const point& c, bool _longarc) :
       target(_target), center(c), longarc(_longarc) { }
     // ToDo 没有正确计算
-    Seg_arcto(const Point& mid, const Point& end) : target(end) { }
-    const Point& get_target() const override;
-    SegType get_type() const override;
+    seg_arcto(const point& mid, const point& end) : target(end) { }
+    const point& get_target() const override;
+    seg_type get_type() const override;
     // ToDo 需要正确计算包围框
-    virtual rect get_boundary(const Point& from) const { return rect::from({ target, from }); };
+    virtual rect get_boundary(const point& from) const { return rect::from({ target, from }); };
 
-    virtual Seg* deep_copy() const override {
-      return new Seg_arcto{ target,center,longarc };
+    virtual segment* deep_copy() const override {
+      return new seg_arcto{ target,center,longarc };
     }
-    virtual void reverse(const Point& from) override {
+    virtual void reverse(const point& from) override {
       target = from;
     }
-    virtual double curr_x(const Point& from, double y) const override {
+    virtual double curr_x(const point& from, double y) const override {
       // ToDo 需要修正计算
       return (target.x - from.x) * (y - from.y) / (target.y - from.y) + from.x;
     }
   };
 
-  struct Seg_cubicto : public Seg
+  struct seg_cubicto : public segment
   {
-    Point ctrl_Point1;
-    Point ctrl_Point2;
-    Point target;
+    point ctrl1;
+    point ctrl2;
+    point target;
 
-    Seg_cubicto(const Point& ctrl1, const Point& ctrl2, const Point& p) :
-      ctrl_Point1(ctrl1), ctrl_Point2(ctrl2), target(p) {}
-    rmath::bezier_cubic get_cubic(const Point& from) const {
-      return rmath::bezier_cubic{ from, ctrl_Point1, ctrl_Point2, target };
+    seg_cubicto(const point& ctrl1, const point& ctrl2, const point& p) :
+      ctrl1(ctrl1), ctrl2(ctrl2), target(p) {}
+    rmath::bezier_cubic get_cubic(const point& from) const {
+      return rmath::bezier_cubic{ from, ctrl1, ctrl2, target };
     }
-    const Point& get_target() const override;
-    SegType get_type() const override;
-    virtual rect get_boundary(const Point& from) const {
+    const point& get_target() const override;
+    seg_type get_type() const override;
+    virtual rect get_boundary(const point& from) const {
       return get_cubic(from).get_boundary();
     };
-    virtual Seg* deep_copy() const override {
-      return new Seg_cubicto{ ctrl_Point1,ctrl_Point2,target };
+    virtual segment* deep_copy() const override {
+      return new seg_cubicto{ ctrl1,ctrl2,target };
     }
-    virtual void reverse(const Point& from) override {
+    virtual void reverse(const point& from) override {
       target = from;
-      std::swap(ctrl_Point1, ctrl_Point2);
+      std::swap(ctrl1, ctrl2);
     }
-    virtual double curr_x(const Point& from, double y) const override;
+    virtual double curr_x(const point& from, double y) const override;
   };
 
-#define path_moveto_func_para const Point& from, const Point& to, void* user
-#define path_lineto_func_para const Point& from, const Point& to, void* user
-#define path_arcto_func_para const Point& from, const Point& center, const Point& start_sweepRad, const Point& to, void* user
-#define path_cubicto_func_para const Point& from, const Point& ctrl1, const Point& ctrl2, const Point& to, void* user
+#define path_moveto_func_para const point& from, const point& to, void* user
+#define path_lineto_func_para const point& from, const point& to, void* user
+#define path_arcto_func_para const point& from, const point& center, const point& start_sweepRad, const point& to, void* user
+#define path_cubicto_func_para const point& from, const point& ctrl1, const point& ctrl2, const point& to, void* user
   typedef void (*path_moveto_func)(path_moveto_func_para);
   typedef void (*path_lineto_func)(path_lineto_func_para);
   typedef void (*path_arcto_func)(path_arcto_func_para);
@@ -139,88 +139,32 @@ namespace river {
     path_cubicto_func  cubic_to = nullptr;
   };
 
-  struct Path
+  struct path
   {
-    std::vector<Seg*> data;
+    std::vector<segment*> data;
 
-    Path() = default;
-    Path(Path&& l) noexcept {
+    path() = default;
+    path(path&& l) noexcept {
       data.swap(l.data);
     }
 
-    ~Path() { for (auto Seg : data) delete Seg; }
-    void moveto(const Point& tp) { data.push_back(new Seg_moveto(tp)); }
-    void moveto(double x, double y) { data.push_back(new Seg_moveto({ x,y })); }
-    void lineto(const Point& tp) { data.push_back(new Seg_lineto(tp)); }
-    void lineto(double x, double y) { data.push_back(new Seg_lineto({ x,y })); }
+    ~path() { for (auto segment : data) delete segment; }
+    void moveto(const point& tp) { data.push_back(new seg_moveto(tp)); }
+    void moveto(double x, double y) { data.push_back(new seg_moveto({ x,y })); }
+    void lineto(const point& tp) { data.push_back(new seg_lineto(tp)); }
+    void lineto(double x, double y) { data.push_back(new seg_lineto({ x,y })); }
     // 三点确定一个圆弧
-    void arcto(const Point& tp, const Point& middle) { data.push_back(new Seg_arcto(middle, tp)); }
-    //void arcto(Point const& center, double sweepRad);
-    void cubicto(const Point& ctrl1, const Point& ctrl2, const Point& end) { data.push_back(new Seg_cubicto(ctrl1, ctrl2, end)); }
+    void arcto(const point& tp, const point& middle) { data.push_back(new seg_arcto(middle, tp)); }
+    //void arcto(point const& center, double sweepRad);
+    void cubicto(const point& ctrl1, const point& ctrl2, const point& end) { data.push_back(new seg_cubicto(ctrl1, ctrl2, end)); }
     // 二阶自动升三阶
-    //void cubicto(const Point& end, const Point& ctrl);
+    //void cubicto(const point& end, const point& ctrl);
 
     // 遍历所有元素，函数指针为空是安全的，会忽略对应内容
     void traverse(const path_traverse_funcs& funcs, void* user) const;
   };
 
-  using Paths = std::vector<Path>;
-
-
-  namespace traits {
-    struct unknow_tag {};
-    struct Point_tag {};
-    struct line_tag {};
-    struct arc_tag {};
-    struct cubic_tag {};
-    struct box_tag {};
-    struct Point_type {};
-
-    struct min_corner {};
-
-
-    template<typename T> struct tag {};
-    template<typename T> struct coordinate_type {};
-    template<typename T, int i> struct access {};
-
-    template<>
-    struct tag<Point>
-    {
-      typedef Point_tag type;
-    };
-
-    template<>
-    struct coordinate_type<Point>
-    {
-      typedef double type;
-    };
-
-    template<>
-    struct access<Point, 0>
-    {
-      static inline double get(const Point& p)
-      {
-        return p.x;
-      }
-      static inline void set(Point& p, const double& value)
-      {
-        p.x = value;
-      }
-    };
-
-    template<>
-    struct access<Point, 1>
-    {
-      static inline double get(const Point& p)
-      {
-        return p.y;
-      }
-      static inline void set(Point& p, const double& value)
-      {
-        p.y = value;
-      }
-    };
-  }
+  using paths = std::vector<path>;
 
   class processor_private;
   class processor
@@ -232,14 +176,14 @@ namespace river {
     ~processor();
 
     void add_line(num x1, num y1, num x2, num y2);
-    void add_path(const Paths& in, PathType pt);
+    void add_path(const paths& in, path_type pt);
 
-    void process(clip_type operation, fill_rule fill_rule, Paths& output);
+    void process(clip_type operation, fill_rule fill_rule, paths& output);
 
   private:
     processor_private* pptr;
   };
 
-  Paths make_path(const char* s);
+  paths make_path(const char* s);
 
 }

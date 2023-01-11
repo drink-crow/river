@@ -27,7 +27,7 @@ while(true)
         local minima 的左右两条边都需要插入到 ael 正确的位置，ael 以 curr_x 排序，相同 ael 时，顺时针排序（从左到右），完全相同的需要标注出来，还需要注意兼容曲线内容
         标记环绕数受到影响的点位
     根据标记的点位重新计算受到影响的 wind_cnt、wind_cnt2
-    然后根据 cliptype 和 fill rule 还有 pathtype 等识别出新的需要输出的区域的左右轮廓
+    然后根据 cliptype 和 fill rule 还有 path_type 等识别出新的需要输出的区域的左右轮廓
     pop_scanline(y)
     do_top_of_scanbeam(y)
         从左到右遍历 ael：
