@@ -111,6 +111,16 @@ namespace vatti
     return res;
   }
 
+  void set_segment(vertex* prev, vertex* mem, segment* move_seg)
+  {
+    prev->next = mem;
+    prev->next_seg = move_seg;
+
+    mem->prev = prev;
+    mem->pt = move_seg->get_target();
+    mem->flags = vertex_flags::none;
+  }
+
   void update_intermediate_curr_x(edge* e, num y)
   {
     point from;
@@ -158,6 +168,99 @@ namespace vatti
     return false;
   }
 
+  struct process_path_data
+  {
+    clipper* clipper = nullptr;
+    path_type polytype = path_type::subject;
+    bool is_open = false;
+    vertex* prev = nullptr, * cur = nullptr;
+    vertex* first = nullptr;
+
+    void new_cur_vertex() {
+      cur = clipper->new_vertex();
+    }
+    void next_loop() {
+      prev = cur;
+    }
+  };
+
+  void vatti_moveto(path_moveto_func_para) {
+    auto data = (process_path_data*)(user);
+    auto& first = data->first;
+
+    if (first) {
+      data->clipper->insert_vertex_list(first, data->prev,
+        data->polytype, data->is_open);
+      first = nullptr;
+      data->prev = nullptr;
+      data->cur = nullptr;
+    }
+
+    data->new_cur_vertex();
+    data->first = data->cur;
+    data->first->pt = to;
+    data->next_loop();
+  }
+
+  void vatti_lineto(path_lineto_func_para) {
+    auto data = (process_path_data*)(user);
+
+    if (from != to) {
+      data->new_cur_vertex();
+      set_segment(data->prev, data->cur, new seg_lineto(to));
+      data->next_loop();
+    }
+  }
+
+  void vatti_cubicto(path_cubicto_func_para) {
+    auto data = (process_path_data*)(user);
+    auto& prev = data->prev;
+    auto& cur = data->cur;
+
+    bezier_cubic b{from, ctrl1, ctrl2, to};
+
+    // 水平状态下视为直线
+    if (b.p0.y == b.p1.y && b.p1.y == b.p2.y && b.p2.y == b.p3.y) {
+      vatti_lineto(from, to, user);
+      return;
+    }
+
+    double split_t[2];
+    auto break_cnt = b.split_y(split_t, split_t + 1);
+    bezier_cubic tmp[3];
+    b.split(split_t, tmp, break_cnt);
+    switch (break_cnt)
+    {
+    case 2:
+      data->new_cur_vertex();
+      set_segment(prev, cur, new seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
+      data->next_loop();
+
+      data->new_cur_vertex();
+      set_segment(prev, cur, new seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
+      data->next_loop();
+
+      data->new_cur_vertex();
+      set_segment(prev, cur, new seg_cubicto(tmp[2].p1, tmp[2].p2, tmp[2].p3));
+      data->next_loop();
+      break;
+    case 1:
+      data->new_cur_vertex();
+      set_segment(prev, cur, new seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
+      data->next_loop();
+
+      data->new_cur_vertex();
+      set_segment(prev, cur, new seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
+      data->next_loop();
+      break;
+    default:
+      data->new_cur_vertex();
+      set_segment(prev, cur, new seg_cubicto(ctrl1, ctrl2, to));
+      data->next_loop();
+      break;
+    }
+  }
+
   void clipper::reset()
   {
     // build init scan line list
@@ -182,172 +285,18 @@ namespace vatti
     {
       if (!is_vaild(path)) continue;
 
-      vertex* prev = nullptr, * cur = nullptr;
-      vertex* first = new_vertex();
-      paths_start.push_back(first);
+      process_path_data data;
+      data.clipper = this;
+      data.polytype = polytype;
+      data.is_open = is_open;
 
-      // ...===vertext===seg===vertex===seg===vertex...
-      auto it = path.data.begin();
-      first->pt = (*it)->get_target();
-      ++it;
-      prev = first;
-      for (; it != path.data.end(); ++it)
-      {
-        auto seg = *it;
-        cur = new_vertex();
+      path_traverse_funcs funcs;
+      funcs.move_to = vatti_moveto;
+      funcs.line_to = vatti_lineto;
+      funcs.cubic_to = vatti_cubicto;
 
-        // 打断曲线使其 y 轴单调，且不自交 
-        // ToDO: 还要处理曲线等价与一条水平线的情况
-        switch (seg->get_type())
-        {
-        case seg_type::cubicto: {
-          auto cubicto = static_cast<seg_cubicto*>(seg);
-
-          bezier_cubic b{ prev->pt, cubicto->ctrl1, cubicto->ctrl2, cubicto->target };
-
-          if (b.p0.x != b.p3.x && b.p0.y == b.p1.y && b.p1.y == b.p2.y && b.p2.y == b.p3.y) {
-            set_segment(prev, cur, new seg_lineto(cur->pt));
-          }
-          else
-          {
-            double split_t[2];
-            auto break_cnt = b.split_y(split_t, split_t + 1);
-            bezier_cubic tmp[3];
-            b.split(split_t, tmp, break_cnt);
-            switch (break_cnt)
-            {
-            case 2:
-              set_segment(prev, cur, new seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
-              prev = cur; cur = new_vertex();
-              set_segment(prev, cur, new seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
-              prev = cur; cur = new_vertex();
-              set_segment(prev, cur, new seg_cubicto(tmp[2].p1, tmp[2].p2, tmp[2].p3));
-              break;
-            case 1:
-              set_segment(prev, cur, new seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
-              prev = cur; cur = new_vertex();
-              set_segment(prev, cur, new seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
-              break;
-            default:
-              set_segment(prev, cur, seg->deep_copy());
-              break;
-            }
-          }
-        }
-                             break;
-        default:
-          // ToDO: 别的曲线类型
-          if (seg->get_target() != prev->pt) {
-            set_segment(prev, cur, seg->deep_copy());
-          }
-          break;
-        }
-
-        prev = cur;
-      }
-      if (!cur) continue;
-      if (!(first->next)) continue; // 跳过最终少于2个点的序列
-
-      if (cur->pt != first->pt) { // 末点不重合则连接至 first
-        set_segment(cur, first, new seg_lineto(first->pt));
-      }
-      else { // 否则丢弃cur，重新连接至 first
-        prev = cur->prev;
-        set_segment(prev, first, prev->next_seg);
-      }
-
-#if 0
-      {
-        auto cur_v = first;
-        QPen redpen(Qt::red);
-        redpen.setWidth(3);
-        do {
-          switch (cur_v->next_seg->get_type())
-          {
-          case seg_type::lineto:
-            debug_util::show_line(QLineF(toqt(cur_v->pt), toqt(cur_v->next_seg->get_target())), redpen);
-            break;
-          case seg_type::cubicto:
-          {
-            auto cubic = (const seg_cubicto*)(cur_v->next_seg);
-            debug_util::show_cubic(toqt(cur_v->pt), toqt(cubic->ctrl1), toqt(cubic->ctrl2), toqt(cur_v->next->pt), redpen);
-            break;
-          }
-          default:
-            break;
-          }
-
-
-          cur_v = cur_v->next;
-        } while (cur_v != first);
-      }
-#endif
-
-      // form local minma
-      bool going_down, going_down0;
-      {
-        bool total_horz = true;
-        auto e = first;
-        do {
-          if (e->pt.y == e->prev->pt.y) {
-            e = e->prev;
-          }
-          else {
-            going_down = e->pt.y < e->prev->pt.y;
-            total_horz = false;
-            break;
-          }
-        } while (e != first);
-        // 完全水平扁平的内容会被跳过
-        if (total_horz) continue;
-        going_down0 = going_down;
-      }
-      prev = first;
-      cur = first->next;
-      while (cur != first)
-      {
-        // 水平线会被跳过
-        // 水平线的的放置规则在后面的扫描过程处理
-        if (cur->pt.y > prev->pt.y && going_down) {
-          going_down = false;
-          add_local_min(prev, polytype, is_open);
-        }
-        else if (cur->pt.y < prev->pt.y && !going_down) {
-          prev->flags = prev->flags | vertex_flags::local_max;
-          going_down = true;
-        }
-
-        prev = cur;
-        cur = cur->next;
-      }
-
-      // 处理最后的连接，实际判断的点是 first->prev
-      if (going_down != going_down0) {
-        if (going_down0) {
-          prev->flags = prev->flags | vertex_flags::local_max;
-        }
-        else {
-          add_local_min(prev, polytype, is_open);
-        }
-      }
-#if 0
-      // 图形调试
-      QPen redpen(Qt::red);
-      QPen bluePen(Qt::blue);
-      for (auto& minima : local_minima_list) {
-        debug_util::show_point(toqt(minima->pt->pt), redpen);
-      }
-
-      auto _s = first;
-      do {
-        if ((_s->flags & vertex_flags::local_max) != vertex_flags::none) {
-          debug_util::show_point(toqt(_s->pt), bluePen);
-        }
-
-        _s = _s->next;
-      } while (_s != first);
-
-#endif
+      path.traverse(funcs, &data);
+      insert_vertex_list(data.first, data.prev, polytype, is_open);
     }
   }
 
@@ -390,6 +339,119 @@ namespace vatti
     v->prev = nullptr;
 
     return v;
+  }
+
+  void clipper::insert_vertex_list(vertex* first, vertex* end, 
+    path_type polytype, bool is_open)
+  {
+    if (!first || !end || !(first->next) || first->next == first) return;
+
+    if (first->pt != end->pt) { // 末点不重合则连接至 first
+      set_segment(end, first, new seg_lineto(first->pt));
+    }
+    else { // 否则丢弃cur，重新连接至 first
+      auto prev = end->prev;
+      set_segment(prev, first, prev->next_seg);
+    }
+
+    // 双重检查
+    if (first->next == first) return;
+
+#if 0
+    {
+      auto cur_v = first;
+      QPen redpen(Qt::red);
+      redpen.setWidth(3);
+      do {
+        switch (cur_v->next_seg->get_type())
+        {
+        case seg_type::lineto:
+          debug_util::show_line(QLineF(toqt(cur_v->pt), toqt(cur_v->next_seg->get_target())), redpen);
+          break;
+        case seg_type::cubicto:
+        {
+          auto cubic = (const seg_cubicto*)(cur_v->next_seg);
+          debug_util::show_cubic(toqt(cur_v->pt), toqt(cubic->ctrl1), toqt(cubic->ctrl2), toqt(cur_v->next->pt), redpen);
+          break;
+        }
+        default:
+          break;
+        }
+
+
+        cur_v = cur_v->next;
+      } while (cur_v != first);
+    }
+#endif
+
+    // form local minma
+    bool going_down, going_down0;
+    {
+      bool total_horz = true;
+      auto e = first;
+      do {
+        if (e->pt.y == e->prev->pt.y) {
+          e = e->prev;
+        }
+        else {
+          going_down = e->pt.y < e->prev->pt.y;
+          total_horz = false;
+          break;
+        }
+      } while (e != first);
+      // 完全水平扁平的内容会被跳过
+      if (total_horz) return;
+      going_down0 = going_down;
+    }
+    
+    auto prev = first;
+    auto cur = first->next;
+    while (cur != first)
+    {
+      // 水平线会被跳过
+      // 水平线的的放置规则在后面的扫描过程处理
+      if (cur->pt.y > prev->pt.y && going_down) {
+        going_down = false;
+        add_local_min(prev, polytype, is_open);
+      }
+      else if (cur->pt.y < prev->pt.y && !going_down) {
+        prev->flags = prev->flags | vertex_flags::local_max;
+        going_down = true;
+      }
+
+      prev = cur;
+      cur = cur->next;
+    }
+
+    // 处理最后的连接，实际判断的点是 first->prev
+    if (going_down != going_down0) {
+      if (going_down0) {
+        prev->flags = prev->flags | vertex_flags::local_max;
+      }
+      else {
+        add_local_min(prev, polytype, is_open);
+      }
+    }
+
+    paths_start.push_back(first);
+#if 0
+    // 图形调试
+    QPen redpen(Qt::red);
+    QPen bluePen(Qt::blue);
+    for (auto& minima : local_minima_list) {
+      debug_util::show_point(toqt(minima->pt->pt), redpen);
+    }
+
+    auto _s = first;
+    do {
+      if ((_s->flags & vertex_flags::local_max) != vertex_flags::none) {
+        debug_util::show_point(toqt(_s->pt), bluePen);
+      }
+
+      _s = _s->next;
+    } while (_s != first);
+
+#endif
   }
 
   void clipper::process_intersect()
@@ -524,16 +586,6 @@ namespace vatti
       } while (cur_v != first);
     }
 #endif
-  }
-
-  void clipper::set_segment(vertex* prev, vertex* mem, segment* move_seg)
-  {
-    prev->next = mem;
-    prev->next_seg = move_seg;
-
-    mem->prev = prev;
-    mem->pt = move_seg->get_target();
-    mem->flags = vertex_flags::none;
   }
 
   bool clipper::pop_scanline(num old_y, num& new_y)
@@ -1078,6 +1130,30 @@ namespace vatti
     for (auto e : reinsert_list) insert_into_ael(e);
   }
 
+  template<typename Iter>
+  void write_path(path& out, Iter begin, Iter end)
+  {
+    auto cur = begin;
+    while (cur != end) {
+      segment* seg_ = *cur;
+
+      switch (seg_->get_type()) 
+      {
+      case seg_type::cubicto:
+      {
+        auto cubicto_ = (seg_cubicto*)(seg_);
+        out.cubicto(cubicto_->ctrl1, cubicto_->ctrl2, cubicto_->target);
+        break;
+      }
+      default:
+        out.lineto(seg_->get_target());
+        break;
+      }
+
+      ++cur;
+    }
+  }
+
   void clipper::build_output(paths& output)
   {
     for (auto out : output_list) {
@@ -1087,10 +1163,9 @@ namespace vatti
 
         path res;
         res.moveto(out->origin);
-        res.data.insert(res.data.end(),
-          out->up_path.begin(), out->up_path.end());
-        res.data.insert(res.data.end(),
-          out->down_path.rbegin(), out->down_path.rend());
+
+        write_path(res, out->up_path.begin(), out->up_path.end());
+        write_path(res, out->down_path.rbegin(), out->down_path.rend());
 
         output.push_back(std::move(res));
         out->up_path.clear();

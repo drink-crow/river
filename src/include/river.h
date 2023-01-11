@@ -14,6 +14,7 @@ namespace river {
   enum class clip_type { none, intersection, union_, difference, xor_ };
 
   using point = rmath::vec2;
+  using num = point::num;
   using rmath::rect;
 
   struct segment;
@@ -34,20 +35,27 @@ namespace river {
     path_cubicto_func  cubic_to = nullptr;
   };
 
+  /* 该 path 结构只是用来做简单的数据交换，使用者不应该使用该结构做任何复杂的操作,
+  *  不应擅自修改其中的数据, 程序中也不会对 path 中的数据进行额外的检查.
+  *  
+  * this 'path' stuct uesd for simple data exchange for this library. you 
+  * should NOT modify the data in ths struct directly. Program would NOT do any
+  * extra exam for this data.
+  */
   struct path
   {
-    std::vector<segment*> data;
+    std::vector<num> data;
+    std::vector<char> element_types;
 
     path() = default;
     path(path&& l) noexcept;
-    ~path();
 
     void moveto(const point& tp);
     void moveto(double x, double y);
     void lineto(const point& tp);
     void lineto(double x, double y);
     // 三点确定一个圆弧
-    void arcto(const point& tp, const point& middle);
+    //void arcto(const point& tp, const point& middle);
     //void arcto(point const& center, double sweepRad);
     void cubicto(const point& ctrl1, const point& ctrl2, const point& end);
     // 二阶自动升三阶
@@ -68,9 +76,7 @@ namespace river {
     processor();
     ~processor();
 
-    void add_line(num x1, num y1, num x2, num y2);
     void add_path(const paths& in, path_type pt);
-
     void process(clip_type operation, fill_rule fill_rule, paths& output);
 
   private:

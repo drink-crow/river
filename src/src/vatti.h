@@ -155,10 +155,10 @@ namespace vatti
     void process(clip_type operation, fill_rule fill, paths& output);
 
     void intersect(vertex* const& r, vertex* const& l);
+    vertex* new_vertex();
+    void insert_vertex_list(vertex* first, vertex* end, path_type polytype, bool is_open);
   private:
     void process_intersect();
-    vertex* new_vertex();
-    void set_segment(vertex* prev, vertex* mem, segment* move_seg);
     void add_local_min(vertex* vert, path_type pt, bool is_open);
     void reset();
     void insert_scanline(num y);
