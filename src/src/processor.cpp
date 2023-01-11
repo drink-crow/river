@@ -44,15 +44,19 @@ namespace river {
     pptr->clipper.add_path(in, pt, false);
   }
 
-  void processor::add_path(traverse_func read_path_func, void* path,
+  void processor::add_path(read_path_func read_path_func, const void* path,
     path_type pt) {
     pptr->clipper.add_path(read_path_func, path, pt, false);
   }
 
-
   void processor::process(clip_type operation, fill_rule fill_rule, paths& output)
   {
     pptr->clipper.process(operation, fill_rule, output);
+  }
+
+  void processor::process(clip_type operation, fill_rule fill_rule,
+    path_traverse_funcs write_func, void* output) {
+    pptr->clipper.process(operation, fill_rule, write_func, output);
   }
 
 #endif

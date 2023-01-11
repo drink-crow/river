@@ -184,7 +184,7 @@ namespace vatti
     }
   };
 
-  void vatti_moveto(path_moveto_func_para) {
+  void read_moveto(path_moveto_func_para) {
     auto data = (process_path_data*)(user);
     auto& first = data->first;
 
@@ -202,7 +202,7 @@ namespace vatti
     data->next_loop();
   }
 
-  void vatti_lineto(path_lineto_func_para) {
+  void read_lineto(path_lineto_func_para) {
     auto data = (process_path_data*)(user);
 
     if (from != to) {
@@ -212,7 +212,7 @@ namespace vatti
     }
   }
 
-  void vatti_cubicto(path_cubicto_func_para) {
+  void read_cubicto(path_cubicto_func_para) {
     auto data = (process_path_data*)(user);
     auto& prev = data->prev;
     auto& cur = data->cur;
@@ -221,7 +221,7 @@ namespace vatti
 
     // 水平状态下视为直线
     if (b.p0.y == b.p1.y && b.p1.y == b.p2.y && b.p2.y == b.p3.y) {
-      vatti_lineto(from, to, user);
+      read_lineto(from, to, user);
       return;
     }
 
@@ -267,6 +267,25 @@ namespace vatti
     p->traverse(segment_funcs, user);
   }
 
+  void write_moveto(path_moveto_func_para)
+  {
+    auto out = (paths*)(user);
+    out->push_back(path());
+    out->back().moveto(to);
+  }
+
+  void write_lineto(path_lineto_func_para)
+  {
+    auto out = (paths*)(user);
+    out->back().lineto(to);
+  }
+
+  void write_cubicto(path_cubicto_func_para)
+  {
+    auto out = (paths*)(user);
+    out->back().cubicto(ctrl1, ctrl2, to);;
+  }
+
   void clipper::reset()
   {
     // build init scan line list
@@ -295,7 +314,7 @@ namespace vatti
     }
   }
 
-  void clipper::add_path(traverse_func read_path_func, const void* path,
+  void clipper::add_path(read_path_func read_path_func, const void* path,
     path_type pt, bool is_open)
   {
     process_path_data data;
@@ -304,15 +323,25 @@ namespace vatti
     data.is_open = is_open;
 
     path_traverse_funcs funcs;
-    funcs.move_to = vatti_moveto;
-    funcs.line_to = vatti_lineto;
-    funcs.cubic_to = vatti_cubicto;
+    funcs.move_to = read_moveto;
+    funcs.line_to = read_lineto;
+    funcs.cubic_to = read_cubicto;
 
     read_path_func(path, funcs, &data);
     insert_vertex_list(data.first, data.prev, pt, is_open);
   }
 
   void clipper::process(clip_type operation, fill_rule fill, paths& output)
+  {
+    path_traverse_funcs write_func;
+    write_func.move_to = write_moveto;
+    write_func.line_to = write_lineto;
+    write_func.cubic_to = write_cubicto;
+
+    process(operation, fill, write_func, &output);
+  }
+
+  void clipper::process(clip_type operation, fill_rule fill, path_traverse_funcs write_func, void* output)
   {
     cliptype_ = operation;
     fillrule_ = fill;
@@ -335,10 +364,7 @@ namespace vatti
     }
 
     if (succeeded_) {
-      build_output(output);
-
-      QPen redpen(Qt::red);
-      draw_path(output, redpen);
+      build_output(write_func, output);
     }
   }
 
@@ -1142,7 +1168,8 @@ namespace vatti
   }
 
   template<typename Iter>
-  void write_path(path& out, Iter begin, Iter end)
+  void write_path(path_traverse_funcs write_func, void* output, point& last_pt,
+    Iter begin, Iter end)
   {
     auto cur = begin;
     while (cur != end) {
@@ -1153,32 +1180,35 @@ namespace vatti
       case seg_type::cubicto:
       {
         auto cubicto_ = (seg_cubicto*)(seg_);
-        out.cubicto(cubicto_->ctrl1, cubicto_->ctrl2, cubicto_->target);
+        write_func.cubic_to(last_pt, cubicto_->ctrl1, cubicto_->ctrl2, cubicto_->target, output);
         break;
       }
       default:
-        out.lineto(seg_->get_target());
+        write_func.line_to(last_pt, seg_->get_target(), output);
         break;
       }
+      last_pt = seg_->get_target();
 
       ++cur;
     }
   }
 
-  void clipper::build_output(paths& output)
+  void clipper::build_output(path_traverse_funcs write_func, void* output)
   {
     for (auto out : output_list) {
       if (out->is_complete) {
         if (out->up_path.empty() && out->down_path.empty())
           continue;
 
-        path res;
-        res.moveto(out->origin);
+        point last(0);
+        write_func.move_to(last, out->origin, output);
+        last = out->origin;
 
-        write_path(res, out->up_path.begin(), out->up_path.end());
-        write_path(res, out->down_path.rbegin(), out->down_path.rend());
+        write_path(write_func, output, last,
+          out->up_path.begin(), out->up_path.end());
+        write_path(write_func, output, last,
+          out->down_path.rbegin(), out->down_path.rend());
 
-        output.push_back(std::move(res));
         out->up_path.clear();
         out->down_path.clear();
       }

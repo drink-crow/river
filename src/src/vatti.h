@@ -151,9 +151,11 @@ namespace vatti
   {
   public:
     void add_path(const paths& paths, path_type polytype, bool is_open);
-    void add_path(traverse_func, const void* path, path_type pt, bool is_open);
+    void add_path(read_path_func, const void* path, path_type pt, bool is_open);
 
     void process(clip_type operation, fill_rule fill, paths& output);
+    void process(clip_type operation, fill_rule fill_rule,
+      path_traverse_funcs write_func, void* output);
 
     void intersect(vertex* const& r, vertex* const& l);
     vertex* new_vertex();
@@ -179,7 +181,7 @@ namespace vatti
     void do_top_of_scanbeam(num y);
     void close_output(num y);
     void resort_ael(num y);
-    void build_output(paths& output);
+    void build_output(path_traverse_funcs write_func, void* output);
     void join_output(out_bound* a, out_bound* b, num y);
     void new_output(edge* a, edge* b);
     void update_bound(out_bound* bound, edge* new_edge);
