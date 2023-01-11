@@ -5,11 +5,11 @@ main_window* mainwindow = nullptr;
 
 main_window::main_window()
 {
-    mainwindow = this;
-    setCentralWidget(central_widget_ = new central_widget);
+  mainwindow = this;
+  setCentralWidget(central_widget_ = new central_widget);
 }
 
 void main_window::post_message(QString msg)
 {
-    central_widget_->post_message(msg);
+  central_widget_->post_message(msg);
 }

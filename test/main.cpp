@@ -6,12 +6,12 @@
 
 int main(int argc, char** argv)
 {
-    QApplication app(argc, argv);
-    main_window mainwindow;
-    mainwindow.show();
+  QApplication app(argc, argv);
+  main_window mainwindow;
+  mainwindow.show();
 
-    web_server_controller web_app;
-    web_app.start();
+  web_server_controller web_app;
+  web_app.start();
 
-    return app.exec();
+  return app.exec();
 }
