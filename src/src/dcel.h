@@ -2,6 +2,7 @@
 
 #include "river.h"
 #include "rmath.h"
+#include "segment.h"
 
 #include <set>
 #include <vector>

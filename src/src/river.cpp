@@ -4,6 +4,8 @@
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/bind/bind.hpp>
 
+#include "segment.h"
+
 BOOST_FUSION_ADAPT_STRUCT(
   river::point,
   (double, x)

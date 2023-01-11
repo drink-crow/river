@@ -3,6 +3,9 @@
 #include <queue>
 #include "boost/pool/pool.hpp"
 #include "boost/pool/object_pool.hpp"
+
+#include "segment.h"
+
 namespace vatti
 {
   using namespace river;

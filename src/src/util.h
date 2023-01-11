@@ -2,7 +2,7 @@
 
 #include "debug_util.h"
 #include "river.h"
-
+#include "segment.h"
 
 #if RIVER_GRAPHICS_DEBUG
 
