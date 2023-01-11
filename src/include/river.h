@@ -65,6 +65,9 @@ namespace river {
     void traverse(const path_traverse_funcs& funcs, void* user) const;
   };
 
+  typedef void (*traverse_func)(const void* path, 
+    path_traverse_funcs segment_funcs, void* user);
+
   using paths = std::vector<path>;
 
   class processor_private;
@@ -77,6 +80,7 @@ namespace river {
     ~processor();
 
     void add_path(const paths& in, path_type pt);
+    void add_path(traverse_func read_path_func, void* path, path_type pt);
     void process(clip_type operation, fill_rule fill_rule, paths& output);
 
   private:

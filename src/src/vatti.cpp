@@ -261,6 +261,12 @@ namespace vatti
     }
   }
 
+  void read_path(const void* path_, path_traverse_funcs segment_funcs, void* user)
+  {
+    auto p = (const path*)(path_);
+    p->traverse(segment_funcs, user);
+  }
+
   void clipper::reset()
   {
     // build init scan line list
@@ -285,19 +291,25 @@ namespace vatti
     {
       if (!is_vaild(path)) continue;
 
-      process_path_data data;
-      data.clipper = this;
-      data.polytype = polytype;
-      data.is_open = is_open;
-
-      path_traverse_funcs funcs;
-      funcs.move_to = vatti_moveto;
-      funcs.line_to = vatti_lineto;
-      funcs.cubic_to = vatti_cubicto;
-
-      path.traverse(funcs, &data);
-      insert_vertex_list(data.first, data.prev, polytype, is_open);
+      add_path(read_path, &path, polytype, is_open);
     }
+  }
+
+  void clipper::add_path(traverse_func read_path_func, const void* path,
+    path_type pt, bool is_open)
+  {
+    process_path_data data;
+    data.clipper = this;
+    data.polytype = pt;
+    data.is_open = is_open;
+
+    path_traverse_funcs funcs;
+    funcs.move_to = vatti_moveto;
+    funcs.line_to = vatti_lineto;
+    funcs.cubic_to = vatti_cubicto;
+
+    read_path_func(path, funcs, &data);
+    insert_vertex_list(data.first, data.prev, pt, is_open);
   }
 
   void clipper::process(clip_type operation, fill_rule fill, paths& output)
@@ -357,27 +369,26 @@ namespace vatti
     // 双重检查
     if (first->next == first) return;
 
-#if 0
+#if 1
     {
       auto cur_v = first;
-      QPen redpen(Qt::red);
-      redpen.setWidth(3);
+      QPen pen;
+      if (polytype == path_type::clip) pen.setColor(Qt::blue);
       do {
         switch (cur_v->next_seg->get_type())
         {
         case seg_type::lineto:
-          debug_util::show_line(QLineF(toqt(cur_v->pt), toqt(cur_v->next_seg->get_target())), redpen);
+          draw_path(rmath::line{ cur_v->pt, cur_v->next_seg->get_target() }, pen);
           break;
         case seg_type::cubicto:
         {
           auto cubic = (const seg_cubicto*)(cur_v->next_seg);
-          debug_util::show_cubic(toqt(cur_v->pt), toqt(cubic->ctrl1), toqt(cubic->ctrl2), toqt(cur_v->next->pt), redpen);
+          draw_path(cubic->get_cubic(cur_v->pt), pen);
           break;
         }
         default:
           break;
         }
-
 
         cur_v = cur_v->next;
       } while (cur_v != first);

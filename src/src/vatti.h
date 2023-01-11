@@ -151,6 +151,7 @@ namespace vatti
   {
   public:
     void add_path(const paths& paths, path_type polytype, bool is_open);
+    void add_path(traverse_func, const void* path, path_type pt, bool is_open);
 
     void process(clip_type operation, fill_rule fill, paths& output);
 
