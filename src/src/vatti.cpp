@@ -63,7 +63,7 @@ namespace vatti
     if ((vertex_flags::local_min & vert->flags) != vertex_flags::none) return;
 
     vert->flags = (vert->flags | vertex_flags::local_min);
-    local_minima_list.push_back(new local_minima(vert, pt, is_open));
+    local_minima_list.push_back(new_local_minima(vert, pt, is_open));
   }
 
   /*         0
@@ -104,9 +104,21 @@ namespace vatti
     return get_seg(e, unuse);
   }
 
-  segment* copy_seg(const edge* e, bool reverse = false) {
+  // ToDo handle other segment type
+  segment* clipper::copy_seg(const edge* e, bool reverse) {
     point from;
-    segment* res = get_seg(e, from)->deep_copy();
+    segment* ref = get_seg(e, from);
+    segment* res = nullptr;
+    switch (ref->get_type())
+    {
+    case seg_type::lineto: res = line_pool.malloc(); break;
+    case seg_type::cubicto: res = cubic_pool.malloc(); break;
+    default:
+      { throw "unhandle seg type in function:copy_seg"; }
+      break;
+    }
+    ref->copy(res);
+
     if (reverse) res->reverse(from);
     return res;
   }
@@ -207,7 +219,7 @@ namespace vatti
 
     if (from != to) {
       data->new_cur_vertex();
-      set_segment(data->prev, data->cur, new seg_lineto(to));
+      set_segment(data->prev, data->cur, data->clipper->new_lineto(to));
       data->next_loop();
     }
   }
@@ -216,6 +228,7 @@ namespace vatti
     auto data = (process_path_data*)(user);
     auto& prev = data->prev;
     auto& cur = data->cur;
+    auto& clipper = data->clipper;
 
     bezier_cubic b{from, ctrl1, ctrl2, to};
 
@@ -233,29 +246,29 @@ namespace vatti
     {
     case 2:
       data->new_cur_vertex();
-      set_segment(prev, cur, new seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
+      set_segment(prev, cur, clipper->new_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
       data->next_loop();
 
       data->new_cur_vertex();
-      set_segment(prev, cur, new seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
+      set_segment(prev, cur, clipper->new_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
       data->next_loop();
 
       data->new_cur_vertex();
-      set_segment(prev, cur, new seg_cubicto(tmp[2].p1, tmp[2].p2, tmp[2].p3));
+      set_segment(prev, cur, clipper->new_cubicto(tmp[2].p1, tmp[2].p2, tmp[2].p3));
       data->next_loop();
       break;
     case 1:
       data->new_cur_vertex();
-      set_segment(prev, cur, new seg_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
+      set_segment(prev, cur, clipper->new_cubicto(tmp[0].p1, tmp[0].p2, tmp[0].p3));
       data->next_loop();
 
       data->new_cur_vertex();
-      set_segment(prev, cur, new seg_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
+      set_segment(prev, cur, clipper->new_cubicto(tmp[1].p1, tmp[1].p2, tmp[1].p3));
       data->next_loop();
       break;
     default:
       data->new_cur_vertex();
-      set_segment(prev, cur, new seg_cubicto(ctrl1, ctrl2, to));
+      set_segment(prev, cur, clipper->new_cubicto(ctrl1, ctrl2, to));
       data->next_loop();
       break;
     }
@@ -371,12 +384,30 @@ namespace vatti
   vertex* clipper::new_vertex()
   {
     auto v = vertex_pool.malloc();
-    v->flags = vertex_flags::none;
-    v->next_seg = nullptr;
-    v->next = nullptr;
-    v->prev = nullptr;
-
+    v->vertex::vertex();
     return v;
+  }
+
+  seg_lineto* clipper::new_lineto(const point& target)
+  {
+    auto l = line_pool.malloc();
+    l->seg_lineto::seg_lineto(target);
+    return l;
+  }
+
+  seg_cubicto* clipper::new_cubicto(const point& ctrl1, const point& ctrl2,
+    const point& target)
+  {
+    auto c = cubic_pool.malloc();
+    c->seg_cubicto::seg_cubicto(ctrl1, ctrl2, target);
+    return c;
+  }
+
+  edge* clipper::new_edge()
+  {
+    auto e = edge_pool.malloc();
+    e->edge::edge();
+    return e;
   }
 
   void clipper::insert_vertex_list(vertex* first, vertex* end, 
@@ -385,7 +416,7 @@ namespace vatti
     if (!first || !end || !(first->next) || first->next == first) return;
 
     if (first->pt != end->pt) { // 末点不重合则连接至 first
-      set_segment(end, first, new seg_lineto(first->pt));
+      set_segment(end, first, new_lineto(first->pt));
     }
     else { // 否则丢弃cur，重新连接至 first
       auto prev = end->prev;
@@ -550,11 +581,11 @@ namespace vatti
         set_segment(start_v, next, start_seg);
         cur_v = next;
         for (size_t i = 1; i < cur_break_list.size(); ++i) {
-          set_segment(cur_v, new_vertex(), new seg_lineto(cur_break_list[i].break_point));
+          set_segment(cur_v, new_vertex(), new_lineto(cur_break_list[i].break_point));
           cur_v = cur_v->next;
         }
         auto end_flags = end_v->flags;
-        set_segment(cur_v, end_v, new seg_lineto(end_v->pt));
+        set_segment(cur_v, end_v, new_lineto(end_v->pt));
         end_v->flags = end_flags;
         break;
       }
@@ -578,12 +609,12 @@ namespace vatti
         set_segment(start_v, next, first_cubicto);
         cur_v = next;
         for (size_t i = 1; i < cur_break_list.size(); ++i) {
-          set_segment(cur_v, new_vertex(), new seg_cubicto(
+          set_segment(cur_v, new_vertex(), new_cubicto(
             split_c[i].p1, split_c[i].p2, cur_break_list[i].break_point));
           cur_v = cur_v->next;
         }
         auto end_flags = end_v->flags;
-        set_segment(cur_v, end_v, new seg_cubicto(split_c.back().p1, split_c.back().p2, end_v->pt));
+        set_segment(cur_v, end_v, new_cubicto(split_c.back().p1, split_c.back().p2, end_v->pt));
         end_v->flags = end_flags;
 
         break;
@@ -649,7 +680,7 @@ namespace vatti
 
     while (pop_local_minima(y, &local_minima))
     {
-      a = new edge();
+      a = new_edge();
       a->bot = local_minima->vert->pt;
       // 这里确定一条边的朝向很简单，因为是 local minima，所以总是有以上一下，所以我们直接设定一条为vert->next
       // 则它的朝向肯定就是朝上的
@@ -666,7 +697,7 @@ namespace vatti
       a->curr_x = a->bot.x;
 
 
-      b = new edge();
+      b = new_edge();
       b->bot = local_minima->vert->pt;
       b->vertex_top = local_minima->vert->next;  // ie ascending
       b->wind_dx = -1;
@@ -1171,6 +1202,11 @@ namespace vatti
   void write_path(path_traverse_funcs write_func, void* output, point& last_pt,
     Iter begin, Iter end)
   {
+#define RIVER_TEST_DRAW_OUTPUT_ 1
+#if RIVER_TEST_DRAW_OUTPUT_
+    QPen redpen(Qt::red);
+#endif // RIVER_TEST_DRAW_OUTPUT_
+
     auto cur = begin;
     while (cur != end) {
       segment* seg_ = *cur;
@@ -1181,10 +1217,16 @@ namespace vatti
       {
         auto cubicto_ = (seg_cubicto*)(seg_);
         write_func.cubic_to(last_pt, cubicto_->ctrl1, cubicto_->ctrl2, cubicto_->target, output);
+#if RIVER_TEST_DRAW_OUTPUT_
+        draw_path(cubicto_->get_cubic(last_pt), redpen);
+#endif
         break;
       }
       default:
         write_func.line_to(last_pt, seg_->get_target(), output);
+#if RIVER_TEST_DRAW_OUTPUT_
+        draw_path(rmath::line{last_pt, seg_->get_target()}, redpen);
+#endif
         break;
       }
       last_pt = seg_->get_target();
@@ -1213,8 +1255,6 @@ namespace vatti
         out->down_path.clear();
       }
       else {
-        for (auto seg : out->up_path) delete seg;
-        for (auto seg : out->down_path) delete seg;
         out->up_path.clear();
         out->down_path.clear();
       }
@@ -1234,10 +1274,10 @@ namespace vatti
 
     if (a->stop_x != b->stop_x) {
       if (a->is_up()) {
-        aout->up_path.push_back(new seg_lineto(point(b->stop_x, y)));
+        aout->up_path.push_back(new_lineto(point(b->stop_x, y)));
       }
       else {
-        aout->down_path.push_back(new seg_lineto(point(a->stop_x, y)));
+        aout->down_path.push_back(new_lineto(point(a->stop_x, y)));
       }
     }
 
@@ -1290,7 +1330,7 @@ namespace vatti
   // a、b 的wind_dx必定相反
   void clipper::new_output(edge* a, edge* b)
   {
-    auto output = new out_polygon;
+    auto output = new_out_polygon();
     output->idx = output_list.size();
     output_list.push_back(output);
     output->owner = nullptr; // ToDo 这里可以开始计算polytree了
@@ -1318,7 +1358,7 @@ namespace vatti
 
     output->origin = down->edge->bot;
     if (up->edge->bot != down->edge->bot) {
-      output->up_path.push_back(new seg_lineto(up->edge->bot));
+      output->up_path.push_back(new_lineto(up->edge->bot));
     }
   }
 
@@ -1327,11 +1367,11 @@ namespace vatti
   {
     if (new_edge->curr_x != bound->stop_x) {
       if (bound->is_up()) {
-        bound->owner->up_path.push_back(new seg_lineto(new_edge->bot));
+        bound->owner->up_path.push_back(new_lineto(new_edge->bot));
       }
       else {
         bound->owner->down_path.push_back(
-          new seg_lineto(point(bound->stop_x, new_edge->bot.y))
+          new_lineto(point(bound->stop_x, new_edge->bot.y))
         );
       }
     }
@@ -1342,7 +1382,23 @@ namespace vatti
 
   out_bound* clipper::new_bound()
   {
-    return new out_bound;
+    auto b = out_bound_pool.malloc();
+    b->out_bound::out_bound();
+    return b;
+  }
+
+  out_polygon* clipper::new_out_polygon()
+  {
+    auto p = out_polygon_pool.malloc();
+    p->out_polygon::out_polygon();
+    return p;
+  }
+
+  local_minima* clipper::new_local_minima(vertex* v, path_type pt, bool open)
+  {
+    auto la = local_minima_pool.malloc();
+    la->local_minima::local_minima(v, pt, open);
+    return la;
   }
 
   void clipper::delete_obl_bound(out_bound* b)
@@ -1354,8 +1410,6 @@ namespace vatti
     else obl_first = next;
 
     if (next) next->prev_in_obl = prev;
-
-    delete b;
   }
 
   // return next edge in ael
@@ -1377,7 +1431,6 @@ namespace vatti
     if (prev) prev->next_in_ael = next;
     else ael_first = next;
 
-    delete e;
     return next;
   }
 

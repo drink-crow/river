@@ -44,10 +44,6 @@ namespace vatti
     vertex* next;
     vertex* prev;
     vertex_flags flags = vertex_flags::none;
-
-    ~vertex() {
-      if (next_seg) delete next_seg;
-    }
   };
 
   struct local_minima
@@ -159,8 +155,17 @@ namespace vatti
 
     void intersect(vertex* const& r, vertex* const& l);
     vertex* new_vertex();
+    seg_lineto* new_lineto(const point& target);
+    seg_cubicto* new_cubicto(const point& ctrl1, const point& ctrl2,
+      const point& target);
     void insert_vertex_list(vertex* first, vertex* end, path_type polytype, bool is_open);
   private:
+    local_minima* new_local_minima(vertex* v, path_type pt, bool open);
+    edge* new_edge();
+    out_bound* new_bound();
+    out_polygon* new_out_polygon();
+    segment* copy_seg(const edge* e, bool reverse = false);
+
     void process_intersect();
     void add_local_min(vertex* vert, path_type pt, bool is_open);
     void reset();
@@ -185,7 +190,6 @@ namespace vatti
     void join_output(out_bound* a, out_bound* b, num y);
     void new_output(edge* a, edge* b);
     void update_bound(out_bound* bound, edge* new_edge);
-    out_bound* new_bound();
     void delete_obl_bound(out_bound*);
     edge* do_maxima(edge* e);
     edge* delete_active_edge(edge*);
@@ -196,6 +200,13 @@ namespace vatti
 
     // 使用 object_pool 提高内存申请的效率和放置内存泄露
     boost::object_pool<vertex> vertex_pool;
+    boost::object_pool<seg_lineto> line_pool;
+    boost::object_pool<seg_cubicto> cubic_pool;
+    boost::object_pool<edge> edge_pool;
+    boost::object_pool<out_bound> out_bound_pool;
+    boost::object_pool<local_minima> local_minima_pool;
+    boost::object_pool<out_polygon> out_polygon_pool;
+
     std::vector<vertex*> paths_start;
     std::vector<break_info> break_info_list;
     std::vector<local_minima*> local_minima_list;
