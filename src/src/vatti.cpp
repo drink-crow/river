@@ -1031,11 +1031,10 @@ namespace vatti
     }
     else if (!is_valid_ael_order(ael_first, newcomer))
     {
-      // swap ael_first、newcomer position in ael
+      // let newcomer being ael_first
       newcomer->prev_in_ael = nullptr;
       newcomer->next_in_ael = ael_first;
       ael_first->prev_in_ael = newcomer;
-      ael_first->next_in_ael = nullptr;
       ael_first = newcomer;
     }
     else {
