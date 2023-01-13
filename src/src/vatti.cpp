@@ -153,6 +153,7 @@ namespace vatti
     e->vertex_top = next_vertex(e);
     e->bot = e->top;
     e->top = e->vertex_top->pt;
+    e->curr_x = e->bot.x;
   }
 
   bool is_same(const edge* a, const edge* b)
