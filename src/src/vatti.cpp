@@ -37,6 +37,10 @@ namespace vatti
   constexpr num num_max = std::numeric_limits<num>::max();
   constexpr num num_min = -num_max;
 
+  constexpr double err = 1e-6;
+  constexpr double zero = 0 + err;
+  constexpr double one = 1 - err;
+
   // ToDO: 判断没齐全
   bool is_vaild(const path& p) {
     return p.data.size() > 1;
@@ -238,11 +242,16 @@ namespace vatti
       return;
     }
 
-    double split_t[2];
+    double split_t[] = { -1,-1 };
     auto break_cnt = b.split_y(split_t, split_t + 1);
+    std::vector<double> recheck_t;
+    for (size_t i = 0; i < 2; ++i) {
+      auto t = split_t[i];
+      if (zero < t && t < one) recheck_t.push_back(t);
+    }
     bezier_cubic tmp[3];
-    b.split(split_t, tmp, break_cnt);
-    switch (break_cnt)
+    b.split(recheck_t.data(), tmp, recheck_t.size());
+    switch (recheck_t.size())
     {
     case 2:
       data->new_cur_vertex();
@@ -1307,9 +1316,9 @@ namespace vatti
       dst_out->up_bound->owner = dst_out;
     }
     else {
-      dst_out->down_path.insert(dst_out->up_path.end(),
+      dst_out->down_path.insert(dst_out->down_path.end(),
         src_out->up_path.rbegin(), src_out->up_path.rend());
-      dst_out->down_path.insert(dst_out->up_path.end(),
+      dst_out->down_path.insert(dst_out->down_path.end(),
         src_out->down_path.begin(), src_out->down_path.end());
 
       dst_out->down_bound = src_out->down_bound;
@@ -1526,10 +1535,6 @@ namespace vatti
     auto lt = l->next_seg->get_type();
 
     uint32_t t = flags(rt) & flags(lt);
-
-    constexpr double err = 1e-8;
-    constexpr double zero = 0 + err;
-    constexpr double one = 1 - err;
 
     switch (t)
     {

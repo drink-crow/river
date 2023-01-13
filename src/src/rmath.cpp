@@ -441,7 +441,7 @@ namespace rmath
     return rect::from({ p0, p3, tp1, tp2 });
   }
 
-  void bezier_cubic::split(double* t, bezier_cubic* out, size_t size) const
+  void bezier_cubic::split(const double* t, bezier_cubic* out, size_t size) const
   {
     bezier_cubic cur = *this;
     double last_t = 1;
