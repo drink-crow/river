@@ -54,6 +54,7 @@ namespace rmath
   struct rect
   {
     typedef vec2 point_type;
+    typedef point_type::num num;
 
     point_type min;
     point_type max;
@@ -62,6 +63,9 @@ namespace rmath
     rect(const point_type& p) :min(p), max(p) {}
     rect(const point_type& _min, const point_type& _max) : min(_min), max(_max) {}
     bool intersect(const rect& r) const;
+    num width() const { return max.x - min.x; }
+    num height() const { return max.y - min.y; }
+    point_type center() const { return (max + min) / 2; }
 
     static rect from(std::initializer_list<point_type> _Ilist)
     {

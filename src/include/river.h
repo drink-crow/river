@@ -19,10 +19,10 @@ namespace river {
 
   struct segment;
 
-#define path_moveto_func_para const point& from, const point& to, void* user
-#define path_lineto_func_para const point& from, const point& to, void* user
-#define path_arcto_func_para const point& from, const point& center, const point& start_sweepRad, const point& to, void* user
-#define path_cubicto_func_para const point& from, const point& ctrl1, const point& ctrl2, const point& to, void* user
+#define path_moveto_func_para const river::point& from, const river::point& to, void* user
+#define path_lineto_func_para const river::point& from, const river::point& to, void* user
+#define path_arcto_func_para const river::point& from, const river::point& center, const river::point& start_sweepRad, const river::point& to, void* user
+#define path_cubicto_func_para const river::point& from, const river::point& ctrl1, const river::point& ctrl2, const river::point& to, void* user
   typedef void (*path_moveto_func)(path_moveto_func_para);
   typedef void (*path_lineto_func)(path_lineto_func_para);
   typedef void (*path_arcto_func)(path_arcto_func_para);
