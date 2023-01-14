@@ -1,7 +1,11 @@
 #include "debug_util.h"
 #include "river.h"
+
 #include <vector>
 #include <string>
+#include <iostream>
+#include <fstream>
+
 #include <qline.h>
 #include <qpoint.h>
 
@@ -16,6 +20,7 @@ struct svg_data
   rmath::rect rect{ rmath::vec2(max_num, max_num), rmath::vec2(-max_num, -max_num) };
   std::vector<std::string> paths;
   std::vector<std::string> nodes;
+  std::string color{"blue"};
 
   void update_rect(const river::point& p) {
     rect.min.x = (std::min)(rect.min.x, p.x);
@@ -25,18 +30,33 @@ struct svg_data
   }
 
   std::string get_svg() const {
+    constexpr double height = 400;
+    double scale = height / rect.height();
+    double width = scale * rect.width();
+    double stroke_w = 1 / scale;
+
     std::string svg(R"(<svg version="1.1" )");
-    svg.append((format(R"(viewBox="%f,%f,%f,%f" )")
-      % rect.min.x % rect.min.y % rect.width() % rect.height()).str());
+    svg.append((format(R"(viewBox="-5,-5,%f,%f" )")
+      % (width+10) % (height+10)).str());
+    svg.append((format(R"(width="%f" height="%f" )")
+      % (width) % (height)).str());
+
     svg.append(R"(xmlns="http://www.w3.org/2000/svg")");
     svg.append(">");
-    svg.append((format(R"(<g transform = "scale(1,-1) translate(0,%f) "> )") 
-      % -rect.height()).str());
+    svg.append((format(R"(<g transform = "scale(%f,%f) translate(0,%f) " 
+        stroke-width="%f"> )") 
+      % scale % (-scale) % (-rect.height()) % stroke_w).str());
 
     for (auto& path_ : paths) {
       svg.append(R"(<path d=")");
       svg.append(path_);
-      svg.append(R"(" /> )");
+      svg.append(R"(" stroke="none" fill="red" fill-opacity="0.3" /> )");
+    }
+
+    for (auto& node_ : nodes) {
+      svg.append(R"(<path d=")");
+      svg.append(node_);
+      svg.append((format(R"(" stroke="%s" fill="none" /> )") % color).str());
     }
 
     svg.append("</g>");
@@ -46,33 +66,47 @@ struct svg_data
   }
 };
 
+
+
 void svg_moveto(path_moveto_func_para)
 {
   auto data = (svg_data*)(user);
   auto& paths = data->paths;
+  auto& nodes = data->nodes;
+
+  data->update_rect(to);
 
   paths.push_back({});
-  data->update_rect(to);
   paths.back().append((format("M%f %f ") % to.x % to.y).str());
+  nodes.push_back({});
+  nodes.back().append((format("M%f %f ") % to.x % to.y).str());
 }
 
 void svg_lineto(path_lineto_func_para)
 {
   auto data = (svg_data*)(user);
   auto& paths = data->paths;
+  auto& nodes = data->nodes;
+
   data->update_rect(to);
   paths.back().append((format("L%f %f ") % to.x % to.y).str());
+  nodes.back().append((format("L%f %f ") % to.x % to.y).str());
 }
 
 void svg_cubicto(path_cubicto_func_para)
 {
   auto data = (svg_data*)(user);
   auto& paths = data->paths;
+  auto& nodes = data->nodes;
+
   data->update_rect(ctrl1);
   data->update_rect(ctrl2);
   data->update_rect(to);
   paths.back().append((format("C%f %f %f %f %f %f ") 
     % ctrl1.x % ctrl1.y % ctrl2.x % ctrl2.y % to.x % to.y).str());
+  nodes.back().append((format("L%f %f ") % ctrl1.x % ctrl1.y).str());
+  nodes.back().append((format("L%f %f ") % ctrl2.x % ctrl2.y).str());
+  nodes.back().append((format("L%f %f ") % to.x % to.y).str());
 }
 
 int main(int argc, char** argv)
@@ -97,7 +131,10 @@ int main(int argc, char** argv)
   write_svg.cubic_to = svg_cubicto;
 
   river.process(clip_type::union_, fill_rule::positive, write_svg, &svg);
-  auto s = svg.get_svg();
+
+  std::fstream svg_file("river_test.svg", std::ios_base::out | std::ios_base::trunc);
+  svg_file << svg.get_svg();
+  svg_file.close();
 
   debug_util::disconnect();
   return 0;

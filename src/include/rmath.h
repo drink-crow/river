@@ -22,8 +22,10 @@ namespace rmath
     vec2(num _v) :x(_v), y(_v) {}
 
     vec2 operator+(const vec2& r) const { return vec2(x + r.x, y + r.y); }
+    vec2 operator+(const num& n) const { return vec2(x + n, y + n); }
     vec2 operator-() const { return vec2(-x, -y); }
     vec2 operator-(const vec2& r) const { return vec2(x - r.x, y - r.y); }
+    vec2 operator-(const num& n) const { return vec2(x - n, y - n); }
     vec2 operator*(num sc) const { return vec2(x * sc, y * sc); }
     vec2 operator/(num sc) const { return vec2(x / sc, y / sc); }
 
@@ -62,6 +64,8 @@ namespace rmath
     rect() = default;
     rect(const point_type& p) :min(p), max(p) {}
     rect(const point_type& _min, const point_type& _max) : min(_min), max(_max) {}
+    rect(const point_type& p, num offset): min(p-offset), max(p+offset)
+    {}
     bool intersect(const rect& r) const;
     num width() const { return max.x - min.x; }
     num height() const { return max.y - min.y; }
