@@ -309,6 +309,14 @@ namespace vatti
     out->back().cubicto(ctrl1, ctrl2, to);;
   }
 
+  void show_moveto(path_moveto_func_para) {}
+  void show_lineto(path_lineto_func_para) {
+    draw_path(rmath::line{ from, to }, QPen(Qt::red));
+  }
+  void show_cubicto(path_cubicto_func_para) {
+    draw_path(rmath::bezier_cubic{ from,ctrl1,ctrl2,to }, QPen(Qt::red));
+  }
+
   void clipper::reset()
   {
     // build init scan line list
@@ -387,6 +395,12 @@ namespace vatti
     }
 
     if (succeeded_) {
+      path_traverse_funcs show_funcs;
+      show_funcs.move_to = show_moveto;
+      show_funcs.line_to = show_lineto;
+      show_funcs.cubic_to = show_cubicto;
+      build_output(show_funcs, nullptr);
+
       build_output(write_func, output);
     }
   }
@@ -1211,11 +1225,6 @@ namespace vatti
   void write_path(path_traverse_funcs write_func, void* output, point& last_pt,
     Iter begin, Iter end)
   {
-#define RIVER_TEST_DRAW_OUTPUT_ 1
-#if RIVER_TEST_DRAW_OUTPUT_
-    QPen redpen(Qt::red);
-#endif // RIVER_TEST_DRAW_OUTPUT_
-
     auto cur = begin;
     while (cur != end) {
       segment* seg_ = *cur;
@@ -1226,16 +1235,10 @@ namespace vatti
       {
         auto cubicto_ = (seg_cubicto*)(seg_);
         write_func.cubic_to(last_pt, cubicto_->ctrl1, cubicto_->ctrl2, cubicto_->target, output);
-#if RIVER_TEST_DRAW_OUTPUT_
-        draw_path(cubicto_->get_cubic(last_pt), redpen);
-#endif
         break;
       }
       default:
         write_func.line_to(last_pt, seg_->get_target(), output);
-#if RIVER_TEST_DRAW_OUTPUT_
-        draw_path(rmath::line{last_pt, seg_->get_target()}, redpen);
-#endif
         break;
       }
       last_pt = seg_->get_target();
@@ -1259,13 +1262,6 @@ namespace vatti
           out->up_path.begin(), out->up_path.end());
         write_path(write_func, output, last,
           out->down_path.rbegin(), out->down_path.rend());
-
-        out->up_path.clear();
-        out->down_path.clear();
-      }
-      else {
-        out->up_path.clear();
-        out->down_path.clear();
       }
     }
   }
