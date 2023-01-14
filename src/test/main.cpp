@@ -36,16 +36,16 @@ struct svg_data
     double stroke_w = 1 / scale;
 
     std::string svg(R"(<svg version="1.1" )");
-    svg.append((format(R"(viewBox="-5,-5,%f,%f" )")
-      % (width+10) % (height+10)).str());
+    svg.append((format(R"(viewBox="%f,%f,%f,%f" )")
+     % (rect.min.x * scale - 5) % (rect.min.y * scale - 5) 
+     % (width + 10) % (height + 10)).str());
     svg.append((format(R"(width="%f" height="%f" )")
-      % (width) % (height)).str());
+      % (width+10) % (height+10)).str());
 
     svg.append(R"(xmlns="http://www.w3.org/2000/svg")");
     svg.append(">");
-    svg.append((format(R"(<g transform = "scale(%f,%f) translate(0,%f) " 
-        stroke-width="%f"> )") 
-      % scale % (-scale) % (-rect.height()) % stroke_w).str());
+    svg.append((format(R"(<g transform = "scale(%f,%f) translate(0,%f) " stroke-width="%f"> )") 
+      % scale % (-scale) % (-(rect.center().y * 2)) % stroke_w).str());
 
     for (auto& path_ : paths) {
       svg.append(R"(<path d=")");
@@ -118,10 +118,14 @@ int main(int argc, char** argv)
   svg_data svg;
   //auto p = river::make_path("m 0 0 l 100 100 c 0 70 0 250 100 200 l 0 0");
   auto subject = river::make_path(
-    "m 18 15.2 l 5.1 15.2 c 4 15.2 3 15 2.3 14.6 c 1.7 14.2 0.9 13.4 0 12 l 1 11 c 1.5 12 2 12.5 2.5 12.7 c 3 13 3.5 13 4.3 13 l 18 13");
+    "m 30 96 c 32 89 24 78 10 60 c 16 60 40 87 39 91 c 39 94 31 98 30 96"
+    "m 25 75 c 31 57 21 51 29 44 c 32 41 34 74 30 78"
+    "m 47 96 c 51 63 47 58 53 54 c 62 49 83 53 83 57 c 81 72 80 75 79 69 "
+            "c 77 61 72 54 56 59 c 51 61 53 81 56 92"
+    "m 70 91 c 69 85 57 75 36 63 c 41 61 54 68 77 85");
   auto clip = river::make_path(
-    "m 5 13 l 5 11 c 5 6.8 4.5 3.5 4 1 l 4 0 l 7 0 l7 13"
-    "m 12 13 l 12 4 c 12 2.5 12 1.5 12.5 1 c 13 0.3 13.6 0 14.5 0 c 15.6 0 16.7 0.5 18 1.5 l 17.3 2.4 c 16.6 2 16 1.7 15.7 1.7 c 15 1.6 14.5 2.3 14.5 3.7 l 14.5 13");
+    "m 16 32 c 40 36 65 38 91 38 l 84 43 c 59 42 33 40 06 36"
+    "m 42 52 c 48 40 42 20 47 02 c 52 15 48 42 52 50");
   river.add_path(subject, path_type::subject);
   river.add_path(clip, path_type::clip);
 

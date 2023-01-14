@@ -71,6 +71,8 @@ namespace rmath
     num height() const { return max.y - min.y; }
     point_type center() const { return (max + min) / 2; }
 
+    rect inflated(const num& n) const { return rect(min - n, min + n); }
+
     static rect from(std::initializer_list<point_type> _Ilist)
     {
       constexpr auto _max = std::numeric_limits<point_type::num>::max();
@@ -86,6 +88,11 @@ namespace rmath
       }
       return out;
     }
+  };
+
+  struct mat3 {
+    typedef double num;
+    num value[3][3];
   };
 
   // 计算点到（无限长）直线的距离的平方
