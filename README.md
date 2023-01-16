@@ -6,6 +6,8 @@ river 是一个使用C++编写的，可以处理曲线的多边形裁剪库。
 
 目前 river 支持的线段类型有直线、三阶贝塞尔  
 
+![preview img](./river_test.svg "效果示意 / Preview")
+
 ## 编译 / Build
 
 ### 常规编译 / Normal Build
