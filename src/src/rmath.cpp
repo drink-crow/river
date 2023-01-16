@@ -468,6 +468,32 @@ namespace rmath
     out2->p0 = p01_12__12_23; out2->p1 = p12_23; out2->p2 = p23; out2->p3 = p3;
   }
 
+  void bezier_cubic::circle(const vec2& center, double r, bezier_cubic* out)
+  {
+    constexpr auto magic = 0.55228475;
+    auto d = r * magic;
+    out[0].p0 = center + vec2(r, 0);
+    out[0].p1 = out[0].p0 + vec2(0, d);
+    out[0].p3 = center + vec2(0, r);
+    out[0].p2 = out[0].p3 + vec2(d, 0);
+
+    out[1].p0 = center + vec2(0, r);
+    out[1].p1 = out[1].p0 - vec2(d, 0);
+    out[1].p3 = center - vec2(r, 0);
+    out[1].p2 = out[1].p3 + vec2(0, d);
+
+    out[2].p0 = center - vec2(r, 0);
+    out[2].p1 = out[2].p0 - vec2(0, d);
+    out[2].p3 = center - vec2(0, r);
+    out[2].p2 = out[2].p3 - vec2(d, 0);
+
+    out[3].p0 = center - vec2(0, r);
+    out[3].p1 = out[3].p0 + vec2(d, 0);
+    out[3].p3 = center + vec2(r, 0);
+    out[3].p2 = out[3].p3 - vec2(0, d);
+  }
+
+
   quad_equa_result resolv_quad_equa(double a, double b, double c)
   {
     quad_equa_result res;

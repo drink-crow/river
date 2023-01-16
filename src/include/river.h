@@ -65,8 +65,8 @@ namespace river {
     void traverse(const path_traverse_funcs& funcs, void* user) const;
   };
 
-  typedef void (*read_path_func)(const void* path, 
-    path_traverse_funcs segment_funcs, void* user);
+#define read_path_func_para const void* paths, river::path_traverse_funcs segment_funcs, void* user
+  typedef void (*read_path_func)(read_path_func_para);
 
   using paths = std::vector<path>;
 

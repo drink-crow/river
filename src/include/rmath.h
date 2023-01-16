@@ -125,6 +125,9 @@ namespace rmath
     [[nodiscard]] int split_y(double* t1, double* t2) const;
     void split(const double* t, bezier_cubic* out, size_t size) const;
     void split(double t, bezier_cubic* out1, bezier_cubic* out2) const;
+
+    // out size must NOT LESS than 4
+    static void circle(const vec2& center, double r, bezier_cubic* out);
   };
 
   struct quad_equa_result
