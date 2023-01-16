@@ -17,16 +17,29 @@ constexpr auto max_num = std::numeric_limits<double>::max();
 
 struct svg_data
 {
-  rmath::rect rect{ rmath::vec2(max_num, max_num), rmath::vec2(-max_num, -max_num) };
+  typedef river::point point;
+
+  rmath::rect rect{ point(max_num, max_num), point(-max_num, -max_num) };
   std::vector<std::string> paths;
   std::vector<std::string> nodes;
+  std::vector<point> nodes_pt;
+  std::vector<std::string> hints;
   std::string color{"blue"};
 
-  void update_rect(const river::point& p) {
+  void update_rect(const point& p) {
     rect.min.x = (std::min)(rect.min.x, p.x);
     rect.min.y = (std::min)(rect.min.y, p.y);
     rect.max.x = (std::max)(rect.max.x, p.x);
     rect.max.y = (std::max)(rect.max.y, p.y);
+  }
+
+  void add_node(const point& p) {
+    nodes_pt.push_back(p);
+  }
+
+  void hints_add_line(const point& l0, const point& l1) {
+    hints.push_back((format(R"(<line x1="%f" y1="%f" x2="%f" y2="%f" stroke="blue"/>)")
+      % l0.x % l0.y % l1.x % l1.y).str());
   }
 
   std::string get_svg() const {
@@ -37,26 +50,31 @@ struct svg_data
 
     std::string svg(R"(<svg version="1.1" )");
     svg.append((format(R"(viewBox="%f,%f,%f,%f" )")
-     % (rect.min.x * scale - 5) % (rect.min.y * scale - 5) 
-     % (width + 10) % (height + 10)).str());
+     % rect.min.x % rect.min.y % rect.width() % rect.height()).str());
     svg.append((format(R"(width="%f" height="%f" )")
       % (width+10) % (height+10)).str());
 
     svg.append(R"(xmlns="http://www.w3.org/2000/svg")");
     svg.append(">");
-    svg.append((format(R"(<g transform = "scale(%f,%f) translate(0,%f) " stroke-width="%f"> )") 
-      % scale % (-scale) % (-(rect.center().y * 2)) % stroke_w).str());
+    svg.append((format(
+      R"(<g transform = "scale(%f,%f) translate(0,%f) " stroke-width="%f"> )") 
+      % 1 % -1 % (-(rect.center().y * 2)) % stroke_w).str());
 
     for (auto& path_ : paths) {
       svg.append(R"(<path d=")");
       svg.append(path_);
-      svg.append(R"(" stroke="none" fill="red" fill-opacity="0.3" /> )");
+      svg.append(R"(" stroke="red" fill="red" fill-opacity="0.3" /> )");
     }
 
-    for (auto& node_ : nodes) {
-      svg.append(R"(<path d=")");
-      svg.append(node_);
-      svg.append((format(R"(" stroke="%s" fill="none" /> )") % color).str());
+    for (auto& p : nodes_pt) {
+      auto r = rmath::rect(p, 2 / scale);
+      svg.append( (format(R"(<rect x="%f" y="%f" width="%f" height="%f" )"
+        R"(fill="blue" />)")
+        % r.min.x % r.min.y % r.width() % r.height()).str());
+    }
+
+    for (auto& hint : hints) {
+      svg.append(hint);
     }
 
     svg.append("</g>");
@@ -78,8 +96,7 @@ void svg_moveto(path_moveto_func_para)
 
   paths.push_back({});
   paths.back().append((format("M%f %f ") % to.x % to.y).str());
-  nodes.push_back({});
-  nodes.back().append((format("M%f %f ") % to.x % to.y).str());
+  data->add_node(to);
 }
 
 void svg_lineto(path_lineto_func_para)
@@ -90,7 +107,7 @@ void svg_lineto(path_lineto_func_para)
 
   data->update_rect(to);
   paths.back().append((format("L%f %f ") % to.x % to.y).str());
-  nodes.back().append((format("L%f %f ") % to.x % to.y).str());
+  data->add_node(to);
 }
 
 void svg_cubicto(path_cubicto_func_para)
@@ -98,15 +115,18 @@ void svg_cubicto(path_cubicto_func_para)
   auto data = (svg_data*)(user);
   auto& paths = data->paths;
   auto& nodes = data->nodes;
+  auto& hints = data->hints;
 
   data->update_rect(ctrl1);
   data->update_rect(ctrl2);
   data->update_rect(to);
   paths.back().append((format("C%f %f %f %f %f %f ") 
     % ctrl1.x % ctrl1.y % ctrl2.x % ctrl2.y % to.x % to.y).str());
-  nodes.back().append((format("L%f %f ") % ctrl1.x % ctrl1.y).str());
-  nodes.back().append((format("L%f %f ") % ctrl2.x % ctrl2.y).str());
-  nodes.back().append((format("L%f %f ") % to.x % to.y).str());
+  data->add_node(ctrl1);
+  data->add_node(ctrl2);
+  data->add_node(to);
+  data->hints_add_line(from, ctrl1);
+  data->hints_add_line(ctrl2, to);
 }
 
 int main(int argc, char** argv)
