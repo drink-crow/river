@@ -17,6 +17,15 @@ namespace scan_line
     typedef double ct;
     typedef vertex* key;
 
+    static bool intersect(const box& a, const box& b) {
+      return a.intersect(b);
+    }
+
+    static ct get_min_x(const box& b) { return b.min.x; }
+    static ct get_min_y(const box& b) { return b.min.y; }
+    static ct get_max_x(const box& b) { return b.max.x; }
+    static ct get_max_y(const box& b) { return b.max.y; }
+
     static box get_rect(const key& in)
     {
       return in->next_seg->get_boundary(in->pt);
