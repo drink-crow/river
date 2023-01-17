@@ -1,21 +1,10 @@
-#include "boost/token_functions.hpp"
 #include "dcel.h"
 #include <algorithm>
-#include <cstddef>
-#include <qbrush.h>
-#include <qline.h>
-#include <qnamespace.h>
-#include <qpainterpath.h>
-#include <qpen.h>
-#include <qpoint.h>
-#include <qsize.h>
 #include <vector>
 #include <cmath>
 
-#include "debug_util.h"
+#include "boost/token_functions.hpp"
 
-#include "QGraphicsPathItem"
-#include "QGraphicsRectItem"
 #include "river.h"
 #include "rmath.h"
 #include "scan_line.h"
@@ -406,7 +395,7 @@ namespace dcel {
       }
     }
 
-#if 0
+#if RIVER_GRAPHICS_DEBUG & 0
     {
       // 图形调试所有的 face
       offset_rect offset;

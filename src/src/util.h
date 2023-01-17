@@ -1,10 +1,18 @@
 #pragma once
 
-#include "debug_util.h"
 #include "river.h"
 #include "segment.h"
 
 #if RIVER_GRAPHICS_DEBUG
+#include <qbrush.h>
+#include <qline.h>
+#include <qnamespace.h>
+#include <qpainterpath.h>
+#include <qpen.h>
+#include <qpoint.h>
+#include <qsize.h>
+
+#include "debug_util.h"
 
 QPointF toqt(const rmath::vec2& p);
 QLineF toqt(const rmath::line& l);

@@ -23,7 +23,7 @@ namespace river {
     pptr = nullptr;
   }
 
-#if 0
+#if RIVER_GRAPHICS_DEBUG & 0
   void processor::add_line(num x1, num y1, num x2, num y2)
   {
     pptr->dcel.add_line(x1, y1, x2, y2);
@@ -37,7 +37,7 @@ namespace river {
   }
 #endif
 
-#if 1
+#if RIVER_GRAPHICS_DEBUG & 1
 
   void processor::add_path(const paths& in, path_type pt)
   {

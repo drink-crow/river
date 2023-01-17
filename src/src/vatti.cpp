@@ -309,6 +309,7 @@ namespace vatti
     out->back().cubicto(ctrl1, ctrl2, to);;
   }
 
+#if RIVER_GRAPHICS_DEBUG &  1
   void show_moveto(path_moveto_func_para) {}
   void show_lineto(path_lineto_func_para) {
     draw_path(rmath::line{ from, to }, QPen(Qt::red));
@@ -316,6 +317,7 @@ namespace vatti
   void show_cubicto(path_cubicto_func_para) {
     draw_path(rmath::bezier_cubic{ from,ctrl1,ctrl2,to }, QPen(Qt::red));
   }
+#endif
 
   void clipper::reset()
   {
@@ -395,11 +397,14 @@ namespace vatti
     }
 
     if (succeeded_) {
+
+#if RIVER_GRAPHICS_DEBUG &  1
       path_traverse_funcs show_funcs;
       show_funcs.move_to = show_moveto;
       show_funcs.line_to = show_lineto;
       show_funcs.cubic_to = show_cubicto;
       build_output(show_funcs, nullptr);
+#endif
 
       build_output(write_func, output);
     }
@@ -450,7 +455,7 @@ namespace vatti
     // 双重检查
     if (first->next == first) return;
 
-#if 1
+#if  RIVER_GRAPHICS_DEBUG & 1
     {
       auto cur_v = first;
       QPen pen;
@@ -526,7 +531,7 @@ namespace vatti
     }
 
     paths_start.push_back(first);
-#if 0
+#if RIVER_GRAPHICS_DEBUG &  0
     // 图形调试
     QPen redpen(Qt::red);
     QPen bluePen(Qt::blue);
@@ -562,7 +567,7 @@ namespace vatti
     scaner.process(this);
 
     // 处理得到的打断信息
-#if 0
+#if RIVER_GRAPHICS_DEBUG &  0
     {
       QPen redpen(Qt::red);
       for (auto& b : break_info_list) {
@@ -650,7 +655,7 @@ namespace vatti
       start = end;
     }
 
-#if 0
+#if RIVER_GRAPHICS_DEBUG &  0
     // 图形测试打断是否正确处理
     for (auto& first : paths_start)
     {
