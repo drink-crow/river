@@ -51,15 +51,16 @@ namespace river
     qi::rule<it, cubic_pack(), ascii::space_type> cubic_p;
     qi::rule<it, arc_pack(), ascii::space_type> arc_p;
     point_p %= double_ >> double_;
-    auto move_p = char_('m') >> point_p[boost::bind(&writer::moveto, &w, _1)];
-    auto line_p = char_('l') >> point_p[boost::bind(&writer::lineto, &w, _1)];
+    qi::rule<it, point(), ascii::space_type> move_p =
+        char_('m') >> point_p[boost::bind(&writer::moveto, &w, _1)];
+    qi::rule<it, point(), ascii::space_type> line_p =
+        char_('l') >> point_p[boost::bind(&writer::lineto, &w, _1)];
     arc_p %= (char_('a') >> point_p >> point_p)[boost::bind(&writer::arcto, &w, _1)];
     cubic_p %= (char_('c') >> point_p >> point_p >> point_p)[boost::bind(&writer::cubicto, &w, _1)];
     auto path = *(move_p | line_p | arc_p | cubic_p);
 
     std::string str(s);
-    point p;
-    if (!qi::phrase_parse(str.begin(), str.end(), path, ascii::space)) {
+    if (!qi::phrase_parse(str.begin(), str.end(), *(move_p | line_p | arc_p | cubic_p), ascii::space)) {
       res.clear();
     }
 
