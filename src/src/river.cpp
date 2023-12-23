@@ -57,7 +57,8 @@ namespace river
         char_('l') >> point_p[boost::bind(&writer::lineto, &w, _1)];
     arc_p %= (char_('a') >> point_p >> point_p)[boost::bind(&writer::arcto, &w, _1)];
     cubic_p %= (char_('c') >> point_p >> point_p >> point_p)[boost::bind(&writer::cubicto, &w, _1)];
-    auto path = *(move_p | line_p | arc_p | cubic_p);
+    // 自动推导的 rule 在非 vs 环境下有问题，即使编译器一样
+    //auto path = *(move_p | line_p | arc_p | cubic_p);
 
     std::string str(s);
     if (!qi::phrase_parse(str.begin(), str.end(), *(move_p | line_p | arc_p | cubic_p), ascii::space)) {

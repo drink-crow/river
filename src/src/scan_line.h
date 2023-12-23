@@ -11,7 +11,7 @@ namespace scan_line
     // you must do below typedef and func
     // typedef myAABBtype box;
     // typedef myNumType ct;
-    // typedef myKeyType key;
+    // typedef mySegmentType segment;
     // 
     // static bool intersect(const box& a, const box& b) {
     //   return true if a intecrsect b
@@ -22,27 +22,27 @@ namespace scan_line
     // static ct get_max_x(const box& b) { ... }
     // static ct get_max_y(const box& b) { ... }
     // 
-    // static box get_rect(const key& in)
+    // static box get_rect(const segment& in)
     // {
     //     return AABB_of(in);
     // }
-    // static void intersect(const key& r, const key& l, void* user)
+    // static void intersect(const segment& r, const segment& l, void* user)
     // {
-    //     // the code precess intersect of key r vers key l
+    //     // the code precess intersect of segment r vers segment l
     // }
   };
 
-  template<class key>
+  template<class segment>
   class scan_line
   {
   public:
-    typedef typename ::scan_line::all_function<key> funcs;
+    typedef typename ::scan_line::all_function<segment> funcs;
     typedef typename funcs::box box;
     typedef typename funcs::ct ct;
 
-    struct seg
+    struct inner_seg
     {
-      key key;
+      segment seg;
       box box;
     };
 
@@ -50,8 +50,8 @@ namespace scan_line
     {
       ct x{ 0 };
 
-      std::vector<seg*> in;
-      std::vector<seg*> out;
+      std::vector<inner_seg*> in;
+      std::vector<inner_seg*> out;
     };
 
     struct scan_point_compare
@@ -71,7 +71,7 @@ namespace scan_line
       };
     };
 
-    void add_segment(const key& in);
+    void add_segment(const segment& in);
     void process(void* user);
 
 
@@ -79,13 +79,13 @@ namespace scan_line
     // 查找或新增
     scan_point* get_point(const ct& x);
     std::set<scan_point*, scan_point_compare> scan_points;
-    std::vector<seg*> segments;
+    std::vector<inner_seg*> segments;
   };
 
-  template<class key>
-  void scan_line<key>::add_segment(const key& in)
+  template<class segment>
+  void scan_line<segment>::add_segment(const segment& in)
   {
-    auto new_seg = new seg{ in, funcs::get_rect(in) };
+    auto new_seg = new inner_seg{ in, funcs::get_rect(in) };
 
     segments.push_back(new_seg);
 
@@ -95,10 +95,10 @@ namespace scan_line
     endp->out.push_back(new_seg);
   }
 
-  template<class key>
-  void scan_line<key>::process(void* user)
+  template<class segment>
+  void scan_line<segment>::process(void* user)
   {
-    std::set<seg*> current;
+    std::set<inner_seg*> current;
 
     for (auto p : scan_points)
     {
@@ -107,7 +107,7 @@ namespace scan_line
         // 每一新添加的对象，和列表中的计算一次交点
         for (auto c : current) {
           if (funcs::intersect(c->box, in->box)) {
-            funcs::intersect(c->key, in->key, user);
+            funcs::intersect(c->seg, in->seg, user);
           }
         }
 
@@ -120,8 +120,8 @@ namespace scan_line
     }
   }
 
-  template<class key>
-  typename scan_line<key>::scan_point* scan_line<key>::scan_line::get_point(const ct& x)
+  template<class segment>
+  typename scan_line<segment>::scan_point* scan_line<segment>::scan_line::get_point(const ct& x)
   {
     scan_point* res = nullptr;
 

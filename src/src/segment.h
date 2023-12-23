@@ -1,5 +1,17 @@
 #pragma once
 #include "river.h"
+#include <memory>
+
+#define RIVER_STATIC_ALLOCATOR_CONSTRUCT(type, ...) \
+  { \
+    static std::allocator<type> __river_alloc; \
+    __river_alloc.construct((type)__VA_ARGS__); \
+  }
+
+template<typename T, class ...Args>
+void construct_at(void* p, Args... args) {
+  ::new(p) T(args...);
+}
 
 namespace river {
   enum class seg_type : int
@@ -12,6 +24,8 @@ namespace river {
 
   struct segment
   {
+    virtual ~segment() = default;
+
     virtual const point& get_target() const = 0;
     virtual seg_type get_type() const = 0;
     virtual void copy(void* in_memory) const = 0;
@@ -28,9 +42,9 @@ namespace river {
     seg_moveto(const point& p) :target(p) {}
     virtual const point& get_target() const override;
     virtual seg_type get_type() const override;
-    virtual rect get_boundary(const point& from) const { return rect(target); };
+    virtual rect get_boundary(const point& from) const override { return rect(target); };
     virtual void copy(void* in_memory) const override {
-      ((seg_moveto*)in_memory)->seg_moveto::seg_moveto(target);
+      construct_at<seg_moveto>(in_memory, target);
     }
     virtual segment* deep_copy() const override {
       return new seg_moveto{ target };
@@ -48,9 +62,9 @@ namespace river {
     seg_lineto(const point& p) :target(p) {}
     const point& get_target() const override;
     seg_type get_type() const override;
-    virtual rect get_boundary(const point& from) const { return rect::from({ target, from }); };
+    virtual rect get_boundary(const point& from) const override { return rect::from({ target, from }); };
     virtual void copy(void* in_memory) const override {
-      ((seg_lineto*)in_memory)->seg_lineto::seg_lineto(target);
+      construct_at<seg_lineto>(in_memory, target);
     }
     virtual segment* deep_copy() const override {
       return new seg_lineto{ target };
@@ -76,11 +90,11 @@ namespace river {
     const point& get_target() const override;
     seg_type get_type() const override;
     // ToDo 需要正确计算包围框
-    virtual rect get_boundary(const point& from) const {
+    virtual rect get_boundary(const point& from) const override {
       return rect::from({ target, from }); };
 
     virtual void copy(void* in_memory) const override {
-      ((seg_arcto*)in_memory)->seg_arcto::seg_arcto(target, center, longarc);
+      construct_at<seg_arcto>(in_memory, target, center, longarc);
     }
     virtual segment* deep_copy() const override {
       return new seg_arcto{ target,center,longarc };
@@ -107,11 +121,11 @@ namespace river {
     }
     const point& get_target() const override;
     seg_type get_type() const override;
-    virtual rect get_boundary(const point& from) const {
+    virtual rect get_boundary(const point& from) const override {
       return get_cubic(from).get_boundary();
     };
     virtual void copy(void* in_memory) const override {
-      ((seg_cubicto*)in_memory)->seg_cubicto::seg_cubicto(ctrl1, ctrl2, target);
+      construct_at<seg_cubicto>(in_memory, ctrl1, ctrl2, target);
     }
     virtual segment* deep_copy() const override {
       return new seg_cubicto{ ctrl1,ctrl2,target };

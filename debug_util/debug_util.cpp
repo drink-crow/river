@@ -83,6 +83,9 @@ namespace debug_util {
 
         curl_easy_setopt(curl, CURLOPT_URL, url);
         auto res = curl_easy_perform(curl);
+        if (res != CURLE_OK) {
+          // ToDo: 请检查结果
+        }
         curl_mime_free(multipart);
         curl_easy_cleanup(curl);
     }

@@ -239,7 +239,7 @@ namespace vatti
   }
 
   void read_arcto(path_arcto_func_para) {
-    auto data = (process_path_data*)(user);
+    //auto data = (process_path_data*)(user);
 
     
   }
@@ -259,7 +259,8 @@ namespace vatti
     }
 
     double split_t[] = { -1,-1 };
-    auto break_cnt = b.split_y(split_t, split_t + 1);
+    b.split_y(split_t, split_t + 1);
+    // 在误差范围内检查
     std::vector<double> recheck_t;
     for (size_t i = 0; i < 2; ++i) {
       auto t = split_t[i];
@@ -428,14 +429,14 @@ namespace vatti
   vertex* clipper::new_vertex()
   {
     auto v = vertex_pool.malloc();
-    v->vertex::vertex();
+    construct_at<vertex>(v);
     return v;
   }
 
   seg_lineto* clipper::new_lineto(const point& target)
   {
     auto l = line_pool.malloc();
-    l->seg_lineto::seg_lineto(target);
+    construct_at<seg_lineto>(l, target);
     return l;
   }
 
@@ -443,14 +444,14 @@ namespace vatti
     const point& target)
   {
     auto c = cubic_pool.malloc();
-    c->seg_cubicto::seg_cubicto(ctrl1, ctrl2, target);
+    construct_at<seg_cubicto>(c, ctrl1, ctrl2, target);
     return c;
   }
 
   edge* clipper::new_edge()
   {
     auto e = edge_pool.malloc();
-    e->edge::edge();
+    construct_at<edge>(e);
     return e;
   }
 
@@ -612,14 +613,14 @@ namespace vatti
 
       auto start_p = cur_v->pt;
       auto start_seg = cur_v->next_seg;
-      auto end_p = cur_v->next->pt;
+      //auto end_p = cur_v->next->pt;
       switch (start_seg->get_type())
       {
       case seg_type::lineto:
       {
         std::vector<break_info> cur_break_list(start, end);
-        auto dx = end_p.x >= start_p.x;
-        auto dy = end_p.y >= start_p.y;
+        //auto dx = end_p.x >= start_p.x;
+        //auto dy = end_p.y >= start_p.y;
         ((seg_lineto*)start_seg)->target = cur_break_list[0].break_point;
         auto next = new_vertex();
         set_segment(start_v, next, start_seg);
@@ -779,7 +780,7 @@ namespace vatti
           break;
         }
         else {
-          if (curr_e->bound) curr_e->bound->edge = nullptr;
+          if (curr_e->bound) curr_e->bound->curr_edge = nullptr;
           curr_e->bound = nullptr;
           calc_windcnt(curr_e);
           curr_e = curr_e->next_in_ael;
@@ -1228,7 +1229,7 @@ namespace vatti
         reinsert_list.push_back(e);
         auto next = e->next_in_ael;
         // 重新排列也意味着原来的bound有可能失效
-        if (e->bound) e->bound->edge = nullptr;
+        if (e->bound) e->bound->curr_edge = nullptr;
         e->bound = nullptr;
         take_from_ael(e);
         e = next;
@@ -1289,10 +1290,10 @@ namespace vatti
   // 到达顶点close了，left 和 right 都会从 obl 中移除
   void clipper::join_output(out_bound* a, out_bound* b, num y)
   {
-    if (a->edge) a->edge->bound = nullptr;
-    if (b->edge) b->edge->bound = nullptr;
-    a->edge = nullptr;
-    b->edge = nullptr;
+    if (a->curr_edge) a->curr_edge->bound = nullptr;
+    if (b->curr_edge) b->curr_edge->bound = nullptr;
+    a->curr_edge = nullptr;
+    b->curr_edge = nullptr;
 
     auto aout = a->owner;
     auto bout = b->owner;
@@ -1362,14 +1363,14 @@ namespace vatti
 
     auto up = new_bound();
     up->owner = output;
-    up->edge = a;
+    up->curr_edge = a;
     a->bound = up;
     up->wind_dx = a->wind_dx;
     up->stop_x = a->curr_x;
 
     auto down = new_bound();
     down->owner = output;
-    down->edge = b;
+    down->curr_edge = b;
     b->bound = down;
     down->wind_dx = b->wind_dx;
     down->stop_x = b->curr_x;
@@ -1381,13 +1382,13 @@ namespace vatti
     output->up_bound = up;
     output->down_bound = down;
 
-    output->origin = down->edge->bot;
-    if (up->edge->bot != down->edge->bot) {
-      output->up_path.push_back(new_lineto(up->edge->bot));
+    output->origin = down->curr_edge->bot;
+    if (up->curr_edge->bot != down->curr_edge->bot) {
+      output->up_path.push_back(new_lineto(up->curr_edge->bot));
     }
   }
 
-  // bound->edge must be nullptr
+  // bound->curr_edge must be nullptr
   void clipper::update_bound(out_bound* bound, edge* new_edge)
   {
     if (new_edge->curr_x != bound->stop_x) {
@@ -1401,28 +1402,28 @@ namespace vatti
       }
     }
 
-    bound->edge = new_edge;
+    bound->curr_edge = new_edge;
     new_edge->bound = bound;
   }
 
   out_bound* clipper::new_bound()
   {
     auto b = out_bound_pool.malloc();
-    b->out_bound::out_bound();
+    construct_at<out_bound>(b);
     return b;
   }
 
   out_polygon* clipper::new_out_polygon()
   {
     auto p = out_polygon_pool.malloc();
-    p->out_polygon::out_polygon();
+    construct_at<out_polygon>(p);
     return p;
   }
 
   local_minima* clipper::new_local_minima(vertex* v, path_type pt, bool open)
   {
     auto la = local_minima_pool.malloc();
-    la->local_minima::local_minima(v, pt, open);
+    construct_at<local_minima>(la, v, pt, open);
     return la;
   }
 
@@ -1437,11 +1438,11 @@ namespace vatti
     if (next) next->prev_in_obl = prev;
   }
 
-  // return next edge in ael
+  // return next curr_edge in ael
   edge* clipper::do_maxima(edge* e)
   {
     if (is_hot(e)) {
-      e->bound->edge = nullptr;
+      e->bound->curr_edge = nullptr;
       e->bound = nullptr;
     }
     return delete_active_edge(e);
@@ -1459,12 +1460,12 @@ namespace vatti
     return next;
   }
 
-  // 关键部分之一，只能传入 ael 中的 edge
-  // edge 的 windcount 指的是 edge 左右两边的区域的环绕数，两个相邻区域的环绕数最多差1
+  // 关键部分之一，只能传入 ael 中的 curr_edge
+  // curr_edge 的 windcount 指的是 curr_edge 左右两边的区域的环绕数，两个相邻区域的环绕数最多差1
   void clipper::set_windcount_closed(edge* e)
   {
     edge* e2 = e->prev_in_ael;
-    //find the nearest closed path edge of the same PolyType in AEL (heading left)
+    //find the nearest closed path curr_edge of the same PolyType in AEL (heading left)
     path_type pt = get_polytype(e);
     while (e2 && (get_polytype(e2) != pt || is_open(e2))) e2 = e2->prev_in_ael;
 

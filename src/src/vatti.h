@@ -113,7 +113,7 @@ namespace vatti
     out_bound* next_in_obl = nullptr;
 
     out_polygon* owner = nullptr;
-    edge* edge = nullptr;
+    edge* curr_edge = nullptr;
     num stop_x;
     int wind_dx = 1;
 
@@ -196,7 +196,7 @@ namespace vatti
 
     clip_type cliptype_ = clip_type::intersection;
     fill_rule fillrule_ = fill_rule::positive;
-    fill_rule fillpos = fill_rule::positive;
+    //fill_rule fillpos = fill_rule::positive;
 
     // 使用 object_pool 提高内存申请的效率和放置内存泄露
     boost::object_pool<vertex> vertex_pool;

@@ -115,7 +115,7 @@ void svg_moveto(path_moveto_func_para)
 {
   auto data = (svg_data*)(user);
   auto& paths = data->paths;
-  auto& nodes = data->nodes;
+  //auto& nodes = data->nodes;
 
   data->update_rect(to);
 
@@ -132,7 +132,7 @@ void svg_lineto(path_lineto_func_para)
 {
   auto data = (svg_data*)(user);
   auto& paths = data->paths;
-  auto& nodes = data->nodes;
+  //auto& nodes = data->nodes;
 
   data->update_rect(to);
   paths.back().append((format("L%f %f ") % to.x % to.y).str());
@@ -145,8 +145,8 @@ void svg_cubicto(path_cubicto_func_para)
 {
   auto data = (svg_data*)(user);
   auto& paths = data->paths;
-  auto& nodes = data->nodes;
-  auto& hints = data->hints;
+  //auto& nodes = data->nodes;
+  //auto& hints = data->hints;
 
   data->update_rect(ctrl1);
   data->update_rect(ctrl2);

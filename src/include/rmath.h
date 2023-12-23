@@ -167,8 +167,9 @@ namespace rmath
     [[nodiscard]] vec2 point_at(double t) const;
     [[nodiscard]] point_at_y_result point_at_y(double y) const;
     [[nodiscard]] rect get_boundary() const;
-    // 分离出的每一部分在 y 轴上单调, 返回打断点的个数，最多为 2
-    [[nodiscard]] int split_y(double* t1, double* t2) const;
+    // 分离出的每一部分在 y 轴上单调, 返回打断点的个数，最多为 2, 根据数量分别修改 t1, t2，范围在(0,1)
+    // 但是注意，有可能出现返回的 t 非常靠近 0 和 1 的情况
+    int split_y(double* t1, double* t2) const;
     void split(const double* t, bezier_cubic* out, size_t size) const;
     void split(double t, bezier_cubic* out1, bezier_cubic* out2) const;
 
