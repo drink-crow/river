@@ -10,6 +10,9 @@ namespace rmath
 
   constexpr double pi = 3.141592653589793;
 
+  // 处理弧度 rad 为 [0,2pi)
+  double clamp_0_2pi(double rad);
+
   struct vec2
   {
     typedef double num;
@@ -113,6 +116,49 @@ namespace rmath
     int count = 0; // at most 3
     double t[3];
   };
+
+  // 用到的所有rad均为弧度制，正为逆时针，负为顺时针, x轴正方向为0
+  struct arc
+  {
+    arc(vec2 const& start, vec2 const& center, double sweep_rad);
+    // 
+    //arc(vec2 const& start, vec2 const& mid, vec2 const& end);
+    //arc(vec2 const& start, vec2 const& center, vec2 const& end, bool is_long_arc);
+
+    const vec2& start() const;
+    const vec2& end() const;
+    const vec2& center() const;
+    double sweep_rad() const;
+    double start_rad() const;
+    double end_rad() const;
+    double radius() const;
+
+    // 反转朝向
+    arc reverse() const;
+
+  private:
+    vec2 p0,p1,_center;
+    double _sweep_rad, _start_rad, _end_rad, _radius;
+  };
+
+  struct arc_split_y {
+    arc_split_y(arc const& in_arc);
+
+    // 拆分成y轴单调的小弧，返回拆分后的数量，返回值 >= 1, 为 1 也就是不拆分
+    size_t split_y_num() const;
+    // out 的数量必须满足 split_y_num()
+    void split_y(arc* out) const;
+
+    arc const& curr_arc() const;
+
+  private:
+    arc target;
+
+    double s_rem, e_rem;
+    int s_quot, e_quot;
+    size_t split_num;
+  };
+
 
   struct bezier_cubic
   {

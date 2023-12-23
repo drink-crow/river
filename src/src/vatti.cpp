@@ -238,6 +238,12 @@ namespace vatti
     }
   }
 
+  void read_arcto(path_arcto_func_para) {
+    auto data = (process_path_data*)(user);
+
+    
+  }
+
   void read_cubicto(path_cubicto_func_para) {
     auto data = (process_path_data*)(user);
     auto& prev = data->prev;

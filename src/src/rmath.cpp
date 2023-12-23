@@ -7,6 +7,11 @@ namespace rmath
     return -err < v&& v < err;
   }
 
+  double clamp_0_2pi(double rad) {
+    rad = remainder(rad, pi * 2);
+    return signbit(rad) ? rad + pi * 2 : rad;
+  }
+
   bool rect::intersect(const rect& r) const
   {
     return !(max.x < r.min.x || min.x > r.max.x
@@ -240,6 +245,152 @@ namespace rmath
     *B = p0.x - p1.x;
     *C = (p1.x * p0.y) - (p0.x * p1.y);
   }
+
+  arc::arc(vec2 const& in_start, vec2 const& in_center, double in_sweep_rad)
+  {
+    p0 = in_start;
+    _center = in_center;
+    _sweep_rad = in_sweep_rad;
+
+    vec2 tmp = start() - center();
+    _radius = tmp.dist();
+    _start_rad = clamp_0_2pi(atan2(tmp.y, tmp.x));
+
+    double end_rad = _start_rad + sweep_rad();
+    p1 = vec2(cos(end_rad), sin(end_rad));
+    p1 = center() + p1 * _radius;
+    _end_rad = clamp_0_2pi(atan2(p1.y, p1.x));
+  }
+
+  const vec2& arc::start() const{
+    return p0;
+  }
+
+  const vec2& arc::end() const{
+    return p1;
+  }
+
+  const vec2& arc::center() const{
+    return _center;
+  }
+  
+  double arc::sweep_rad() const {
+    return _sweep_rad;
+  }
+
+  double arc::start_rad() const {
+    return _start_rad;
+  }
+
+  double arc::end_rad() const {
+    return _end_rad;
+  }
+
+  double arc::radius() const {
+    return _radius;
+  }
+
+  arc arc::reverse() const {
+    arc r = *this;
+    std::swap(r.p0, r.p1);
+    std::swap(r._start_rad, r._end_rad);
+
+    return r;
+  }
+
+  arc_split_y::arc_split_y(arc const& in_arc):target(in_arc)
+  {
+    /*******************************************************
+    * 计算分段以及相关数据
+    ********************************************************/
+
+    double s_rad = target.start_rad();
+    double e_rad = s_rad + target.sweep_rad();
+    if (s_rad > e_rad) {
+      std::swap(s_rad, e_rad);
+    }
+
+    // 因为 x 轴正方向为0，所以要调整相位
+    s_rad -= pi / 2;
+    e_rad -= pi / 2;
+
+    s_rem = remainder(s_rad, pi);
+    s_quot = s_rad / pi;
+
+    e_rem = remainder(e_rad, pi);
+    e_quot = e_rad / pi;
+
+    // 相差不超过半圈
+    if (s_quot == e_quot) {
+      split_num = 0;
+    }
+
+    // 相差刚好半圈
+    else if ((s_quot + 1) == e_quot && e_rad - s_rad == pi) {
+      split_num = 0;
+    }
+    else 
+    {
+      split_num = e_quot - s_quot + (e_rem > 0 ? 1 : 0);
+    }
+
+    // 保底 1 段，也就是不拆分
+    split_num++;
+
+    /********************************************************
+    * 开始拆分
+    *********************************************************/
+    std::vector<arc> arc_vector;
+
+    if (split_num == 1) {
+      arc_vector.push_back(target);
+      return;
+    }
+
+    // 按照 sweep_rad 为正开始拆分
+    vec2 s_p = target.start();
+    vec2 e_p = target.end();
+    if (target.sweep_rad() < 0) {
+      std::swap(s_p, e_p);
+    }
+
+    arc_vector.reserve(split_num);
+    // 头
+    arc_vector.push_back(arc(s_p, target.center(), pi - s_rem));
+    // 中间
+    bool odd = div(s_quot + 1, 2).rem;
+    for (size_t i = 2; i < split_num; ++i) {
+      vec2 p_tmp = target.center() + vec2(0, odd ? target.radius() : -target.radius());
+      arc_vector.push_back(arc(p_tmp, target.center(), pi));
+      odd = !odd;
+    }
+    // 尾
+    arc_vector.push_back(arc(e_p, target.center(), pi - e_rem).reverse());
+
+    // 按需反转
+    if (target.sweep_rad() < 0) {
+      std::reverse(arc_vector.begin(), arc_vector.end());
+      for (auto& a : arc_vector) { a = a.reverse(); }
+    }
+  }
+
+  size_t arc_split_y::split_y_num() const
+  {
+    return split_num;
+  }
+  // out 预申请的空间必须满足 split_y_num() * sizeof(arc)
+  void arc_split_y::split_y(arc* out) const
+  {
+
+
+
+
+
+
+
+  }
+
+  arc const& arc_split_y::curr_arc() const { return target; }
 
   int bezier_cubic::split_y(double* t1, double* t2) const
   {
