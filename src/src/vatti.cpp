@@ -4,6 +4,7 @@
 #include "util.h"
 
 #include <algorithm>
+#include <list>
 
 namespace scan_line
 {
@@ -196,7 +197,7 @@ namespace vatti
 
   struct process_path_data
   {
-    clipper* clipper = nullptr;
+    class clipper * clipper = nullptr;
     path_type polytype = path_type::subject;
     bool is_open = false;
     vertex* prev = nullptr, * cur = nullptr;
@@ -869,7 +870,7 @@ namespace vatti
     windcnt_change_list.clear();
 
     struct new_bound {
-      edge* edge = nullptr;
+      class edge* edge = nullptr;
       bool is_done = false;
     };
     std::vector<new_bound> bound_edge;
@@ -899,7 +900,7 @@ namespace vatti
     }
 
     struct bound_data {
-      edge* edge;
+      class edge* edge;
       out_bound* bound;
       num curr_x;
       size_t obl_index;

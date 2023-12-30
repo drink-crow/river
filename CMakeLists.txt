@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.8.0)
 
-option(RIVER_DEVELOP_TEST "river develop test" ON)
+option(RIVER_DEVELOP_TEST "river develop test" OFF)
 
+if(WIN32)
+    set(CMAKE_TOOLCHAIN_FILE "C:/vcpkg/scripts/buildsystems/vcpkg.cmake")
+endif()
 
-set(CMAKE_TOOLCHAIN_FILE "C:/vcpkg/scripts/buildsystems/vcpkg.cmake")
 project(river VERSION 0.0.0.1 LANGUAGES CXX)
 
 if(RIVER_DEVELOP_TEST)

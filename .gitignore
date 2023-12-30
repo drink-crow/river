@@ -1,5 +1,5 @@
 ﻿.cache
 .vs
 build
-.vscode/settings.json
+.vscode
 CMakeSettings.json

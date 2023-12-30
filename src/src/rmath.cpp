@@ -9,7 +9,7 @@ namespace rmath
 
   double clamp_0_2pi(double rad) {
     rad = remainder(rad, pi * 2);
-    return signbit(rad) ? rad + pi * 2 : rad;
+    return std::signbit(rad) ? rad + pi * 2 : rad;
   }
 
   bool rect::intersect(const rect& r) const
@@ -824,14 +824,18 @@ namespace rmath
     return res;
   }
 
+  // 计算 bezier 大致的包围框
   inline rect rough_rect(const bezier_cubic& b) {
     return rect::from({ b.p0, b.p1, b.p2, b.p3 });
   }
 
   struct data
   {
+    // 当前的曲线
     bezier_cubic bezier;
-    rect rect;
+    // 当前的包围框
+    rect bbox;
+    
     double t0 = 0;
     double t1 = 1;
     int recurse = 0;
@@ -839,11 +843,11 @@ namespace rmath
     inline void subdive(data& out1, data& out2) const
     {
       bezier.split(0.5, &out1.bezier, &out2.bezier);
-      out1.rect = rough_rect(out1.bezier);
+      out1.bbox = rough_rect(out1.bezier);
       out1.t0 = t0;
       out1.t1 = (t0 + t1) / 2;
       out1.recurse = recurse + 1;
-      out2.rect = rough_rect(out2.bezier);
+      out2.bbox = rough_rect(out2.bezier);
       out2.t0 = out1.t1;
       out2.t1 = t1;
       out2.recurse = recurse + 1;
@@ -863,7 +867,7 @@ namespace rmath
 
     data p1{ b1,rough_rect(b1),0,1,0 };
     data p2{ b2,rough_rect(b2),0,1,0 };
-    if (!p1.rect.intersect(p2.rect)) return res;
+    if (!p1.bbox.intersect(p2.bbox)) return res;
 
     pairs.push_back(data_pair(p1, p2));
     while (!pairs.empty()) {
@@ -876,7 +880,7 @@ namespace rmath
 
       constexpr auto check_func = [](const data& p0, const data& p1, int precise,
         decltype(pairs)& next_out, decltype(intersect_pair)& intersect_out) {
-          if (p0.rect.intersect(p1.rect)) {
+          if (p0.bbox.intersect(p1.bbox)) {
             if (p0.recurse > precise)
               intersect_out.push_back(data_pair(p0, p1));
             else

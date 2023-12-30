@@ -43,7 +43,8 @@ namespace scan_line
     struct inner_seg
     {
       segment seg;
-      box box;
+      // 当前的包围框
+      box bbox;
     };
 
     struct scan_point
@@ -89,9 +90,9 @@ namespace scan_line
 
     segments.push_back(new_seg);
 
-    auto startp = get_point(funcs::get_min_x(new_seg->box));
+    auto startp = get_point(funcs::get_min_x(new_seg->bbox));
     startp->in.push_back(new_seg);
-    auto endp = get_point(funcs::get_max_x(new_seg->box));
+    auto endp = get_point(funcs::get_max_x(new_seg->bbox));
     endp->out.push_back(new_seg);
   }
 
@@ -106,7 +107,7 @@ namespace scan_line
       {
         // 每一新添加的对象，和列表中的计算一次交点
         for (auto c : current) {
-          if (funcs::intersect(c->box, in->box)) {
+          if (funcs::intersect(c->bbox, in->bbox)) {
             funcs::intersect(c->seg, in->seg, user);
           }
         }

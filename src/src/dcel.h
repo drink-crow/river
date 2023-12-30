@@ -88,7 +88,7 @@ namespace dcel {
     point* end = nullptr;
 
     half_edge* twin = nullptr; // 孪生半边，数据相反
-    face* face = nullptr; // 该半边左边的面
+    class face* face = nullptr; // 该半边左边的面
     half_edge* next = nullptr; // 同一个面下的下一个半边
     half_edge* prev = nullptr; // 同一个面下的前一个半边
 
