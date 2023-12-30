@@ -1,13 +1,17 @@
-#include "debug_util.h"
+#if RIVER_DEVELOP_TEST
+  #include "debug_util.h"
+#else
+  namespace debug_util{
+    void connect(){}
+    void disconnect(){}
+  }
+#endif
 #include "river.h"
 
 #include <vector>
 #include <string>
 #include <iostream>
 #include <fstream>
-
-#include <qline.h>
-#include <qpoint.h>
 
 #include "boost/format.hpp"
 

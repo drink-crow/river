@@ -37,8 +37,6 @@ namespace river {
   }
 #endif
 
-#if RIVER_GRAPHICS_DEBUG & 1
-
   void processor::add_path(const paths& in, path_type pt)
   {
     pptr->clipper.add_path(in, pt, false);
@@ -58,7 +56,4 @@ namespace river {
     path_traverse_funcs write_func, void* output) {
     pptr->clipper.process(operation, fill_rule, write_func, output);
   }
-
-#endif
-
 }
